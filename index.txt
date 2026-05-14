@@ -22,12 +22,14 @@ The goal of the system is to provide reliable, portable and near real-time ball 
 Hardware Components List
 ----------------------------------------------------------
 
-1. 24GHz Radar Sensor
+1. 24GHz Radar Sensor (Recommended: HLK-LD303)
 2. ESP32 DevKit V1 Microcontroller
-3. Jumper Wires
+3. Jumper Wires (Male-to-Female, Male-to-Male)
 4. Mi Power Bank (20000mAh)
 5. Tripod / Mount
 6. Enclosure (Optional)
+7. Logic Level Shifter 3.3V ↔ 5V (BSS138 or TXS0102 — if radar UART is 5V)
+8. 100µF Electrolytic Capacitor (for power line stability)
 
 ----------------------------------------------------------
 High-Level System Flow
@@ -97,6 +99,42 @@ Raw movement data generated
 Send to ESP32
 
 ----------------------------------------------------------
+Radar Module Specification
+----------------------------------------------------------
+
+Recommended Module:
+
+HLK-LD303
+
+Reason for selection:
+
+- 24GHz operating frequency
+- UART output (direct speed values, no ADC or FFT needed on ESP32)
+- 3.3V UART logic compatible with ESP32
+- Powered by 5V (available from power bank via ESP32 VIN or USB)
+- Detection range: up to 5–8 meters (sufficient for box cricket pitch)
+- Outputs speed in km/h or m/s depending on firmware version
+- Compact size, easy to mount on tripod
+
+Key Electrical Specifications:
+
+Operating Voltage:       5V DC
+UART Logic Level:        3.3V (compatible with ESP32 directly)
+Current Consumption:     ~150–300mA (active detection)
+UART Baud Rate:          115200 bps
+Data Format:             8 data bits, No parity, 1 stop bit (8N1)
+Output Protocol:         ASCII or binary serial frames (check datasheet)
+Antenna Orientation:     Face antenna directly toward the incoming ball
+Operating Temperature:   -20°C to +60°C
+
+Important Note for Engineer:
+
+Verify UART logic voltage of the exact module received.
+If UART TX pin outputs 5V logic, add a logic level shifter
+between radar TX and ESP32 RX to avoid damaging ESP32 GPIO.
+ESP32 GPIO input is NOT 5V tolerant.
+
+----------------------------------------------------------
 Component: ESP32 Microcontroller
 ----------------------------------------------------------
 
@@ -151,15 +189,15 @@ Communication Connections
 
 Radar TX
         ↓
-ESP32 RX Pin
+ESP32 RX Pin (GPIO16 — UART2 RX)
 
 Radar RX
         ↓
-ESP32 TX Pin
+ESP32 TX Pin (GPIO17 — UART2 TX)
 
 Radar VCC
         ↓
-5V
+5V (ESP32 VIN pin or direct USB 5V from power bank)
 
 Radar GND
         ↓
@@ -168,6 +206,65 @@ ESP32 GND
 Important:
 
 ESP32 and Radar should use common ground.
+
+----------------------------------------------------------
+ESP32 GPIO Pin Mapping
+----------------------------------------------------------
+
+Pin Assignment Table:
+
+ESP32 Pin       Function                  Connected To
+---------       --------                  ------------
+GPIO16 (RX2)    UART2 Receive             Radar TX
+GPIO17 (TX2)    UART2 Transmit            Radar RX
+VIN (5V)        Power Output              Radar VCC (5V)
+GND             Common Ground             Radar GND
+
+Note:
+
+Use UART2 (GPIO16/GPIO17) on ESP32.
+Do NOT use UART0 (GPIO1/GPIO3) — that is used for USB serial debug.
+Do NOT use GPIO6–GPIO11 — those are connected to internal flash.
+
+----------------------------------------------------------
+Voltage Logic Level Details
+----------------------------------------------------------
+
+ESP32 GPIO voltage:    3.3V logic (NOT 5V tolerant)
+HLK-LD303 UART:        3.3V logic (compatible — no shifter needed)
+
+If a different radar module is used:
+
+Check if radar UART TX outputs 5V.
+If yes, add logic level shifter (BSS138 module or TXS0102).
+
+Wiring with Logic Level Shifter (if needed):
+
+Radar TX (5V) → LV1 pin of shifter → HV side
+                HV3 pin of shifter → LV side (3.3V)
+                                    ↓
+                             ESP32 GPIO16 (RX2)
+
+Shifter HV pin → 5V
+Shifter LV pin → 3.3V (ESP32 3.3V pin)
+Shifter GND   → Common GND
+
+----------------------------------------------------------
+UART Configuration for ESP32 Firmware
+----------------------------------------------------------
+
+UART Port:       Serial2 (UART2)
+RX Pin:          GPIO16
+TX Pin:          GPIO17
+Baud Rate:       115200
+Data Bits:       8
+Parity:          None
+Stop Bits:       1
+Buffer Size:     256 bytes (recommended)
+
+Arduino Code Initialization:
+
+Serial2.begin(115200, SERIAL_8N1, 16, 17);
 
 ----------------------------------------------------------
 Power Supply Setup
@@ -271,6 +368,217 @@ Reason:
 - Lower measured speed
 
 ----------------------------------------------------------
+3D Placement Diagram — Top View (Bird's Eye)
+----------------------------------------------------------
+
+              BOX CRICKET FIELD (Top View)
+  _______________________________________________
+ |                                               |
+ |   [BOWLER]                                    |
+ |      |                                        |
+ |      |   <-- 10 to 14 meters pitch -->        |
+ |      |                                        |
+ |      O  (ball delivery direction)             |
+ |      |                                        |
+ |      ↓                                        |
+ |      ↓                                        |
+ |      ↓                                        |
+ |   ═══════════                                 |
+ |   ║ STUMPS ║  ← Wicket line                  |
+ |   ═══════════                                 |
+ |      ↑                                        |
+ |   [BATTER]                                    |
+ |                                               |
+ |   <--- 1 to 2 meters --->                     |
+ |                                               |
+ |   ┌─────────────┐                             |
+ |   │  📡 RADAR   │  ← Faces toward bowler      |
+ |   │   HLK-LD303 │                             |
+ |   └──────┬──────┘                             |
+ |          │ (wire)                             |
+ |   ┌──────┴──────┐                             |
+ |   │    ESP32    │                             |
+ |   │  + PowerBank│                             |
+ |   └─────────────┘                             |
+ |          │                                    |
+ |   [TRIPOD STAND]                              |
+ |_______________________________________________|
+
+Ball travel path:  Bowler ——→——→——→ Radar
+
+----------------------------------------------------------
+3D Placement Diagram — Side View (Elevation)
+----------------------------------------------------------
+
+         SIDE VIEW (from left side of pitch)
+
+                        BOWLER
+                           |
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   (pitch ground level)
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                           |
+                    Ball flying low
+                           ↓
+                    ___________
+                   |           |
+                   |  STUMPS   |  ← 71.1 cm height
+                   |___________|
+                           |
+                   ← 1–2m →|
+                            |
+              ┌─────────────────────┐
+              │                     │  ← Mount radar
+              │   📡 RADAR SENSOR   │     at stump
+              │    (faces bowler)   │     height
+              │                     │     (~65–75 cm
+              └──────────┬──────────┘      from ground)
+                         │
+              ┌──────────┴──────────┐
+              │       ESP32         │
+              │    + Power Bank     │  ← Attached to
+              └──────────┬──────────┘     tripod body
+                         │
+              ┌──────────┴──────────┐
+              │    TRIPOD LEGS      │
+              │   /     |     \     │
+              │  /      |      \    │
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   (ground)
+
+Radar height from ground: 65 cm to 75 cm
+Reason: Aligns with ball travel path at stump level
+
+----------------------------------------------------------
+3D Placement Diagram — Front View (From Bowler's Angle)
+----------------------------------------------------------
+
+         FRONT VIEW (what bowler sees looking at batter end)
+
+
+                      ___________
+                     |           |
+                     |  BATTER   |
+                     |___________|
+
+
+         LEFT STUMP   MID STUMP   RIGHT STUMP
+              |           |           |
+         _____|___________|___________|_____
+        |                                   |
+        |           WICKET LINE             |
+        |___________________________________|
+
+                 ← 1 to 2 meters behind wicket →
+
+
+              ┌───────────────────────────┐
+              │                           │
+              │      📡 RADAR SENSOR      │  ← Center aligned
+              │       (HLK-LD303)         │     behind middle
+              │                           │     stump
+              └────────────┬──────────────┘
+                           │
+              ┌────────────┴──────────────┐
+              │         ESP32             │
+              │      + Power Bank         │
+              └────────────┬──────────────┘
+                           │
+                      /────┴────\
+                     /     |     \
+                    /      |      \
+                ___/       |       \___
+               (TRIPOD LEGS — stable on flat surface)
+
+
+Important:
+Radar center must align with middle stump horizontally.
+Radar faces directly toward bowler (0° angle).
+
+----------------------------------------------------------
+3D Placement Diagram — Isometric View (Full Setup)
+----------------------------------------------------------
+
+                        ISOMETRIC VIEW
+
+
+    BOWLER END
+       ╱
+      ╱
+     ╱  ← Ball delivery path
+    ╱
+   ●  (ball)
+    ╲
+     ╲
+      ╲─────────────────────────────────────╮
+                                            │
+                                       ═════════
+                                       ║STUMPS║
+                                       ═════════
+                                            │
+                                   (1–2m behind)
+                                            │
+                              ╔═════════════╧════════════╗
+                              ║      📡 RADAR MODULE     ║
+                              ║         HLK-LD303        ║
+                              ║    [ antenna faces →  ]  ║
+                              ║    [    toward bowler ]  ║
+                              ╚═════════════╤════════════╝
+                                            │ (jumper wire)
+                              ╔═════════════╧════════════╗
+                              ║          ESP32           ║
+                              ║       DevKit V1          ║
+                              ╚═════════════╤════════════╝
+                                            │ (USB cable)
+                              ╔═════════════╧════════════╗
+                              ║    Mi Power Bank         ║
+                              ║       20000mAh           ║
+                              ╚═════════════╤════════════╝
+                                            │
+                                      ┌─────┴─────┐
+                                     ╱│           │╲
+                                    ╱ │  TRIPOD   │ ╲
+                                   ╱  │           │  ╲
+                                  ●   └───────────┘   ●
+                                  (leg)             (leg)
+                                           ●
+                                          (leg)
+
+----------------------------------------------------------
+Mounting Assembly Instructions (For Engineer)
+----------------------------------------------------------
+
+Step 1 — Tripod Setup:
+
+- Use a standard camera tripod or a custom PVC pipe stand
+- Set tripod height so radar center = 65–75 cm from ground
+- Place tripod 1–2 meters directly behind the batter wicket
+- Ensure tripod is stable on flat ground (tighten all locks)
+
+Step 2 — Radar Mounting:
+
+- Attach radar module to tripod head using bracket or cable ties
+- Ensure radar antenna face points directly toward bowler end
+- Angle: 0 degrees (perfectly horizontal, no tilt up or down)
+- Secure all wires so they don't hang loose
+
+Step 3 — ESP32 + Power Bank:
+
+- Attach ESP32 and power bank to tripod leg or body using velcro strap
+- Connect radar VCC → ESP32 VIN (5V)
+- Connect radar GND → ESP32 GND
+- Connect radar TX → ESP32 GPIO16
+- Connect radar RX → ESP32 GPIO17
+- Connect power bank USB → ESP32 micro-USB
+
+Step 4 — Final Check:
+
+- No wire should cross the ball path
+- All connections are secure before match starts
+- Power bank is fully charged before match
+- Mobile app will show BLE connection status
+
+----------------------------------------------------------
 How Radar Detects Ball Speed
 ----------------------------------------------------------
 
@@ -356,6 +664,205 @@ Output:
 116 km/h
 
 ----------------------------------------------------------
+ESP32 Firmware Configuration Values
+----------------------------------------------------------
+
+Speed Thresholds:
+
+Minimum valid speed:         20 km/h  (ignore slow movement like bat/player)
+Maximum valid speed:         200 km/h (ignore noise spikes above this)
+Tracking start threshold:    20 km/h  (begin collecting when speed crosses this)
+Tracking stop threshold:     10 km/h  (end collection when speed drops below this)
+
+Timing Configuration:
+
+Cooldown after delivery:     3000 ms  (ignore all readings for 3 seconds after result sent)
+Max tracking duration:       2000 ms  (if object tracked longer than 2s, treat as non-ball)
+Minimum tracking duration:   100 ms   (discard if object passes faster than 100ms — noise)
+UART read interval:          50 ms    (poll radar data every 50ms)
+
+Algorithm:
+
+1. Continuously read speed values from radar via UART
+2. If speed > 20 km/h → start tracking session
+3. Collect all speed values during tracking session
+4. If speed drops below 10 km/h → end tracking session
+5. If tracking duration > 2000ms → discard (not a ball, too slow/long)
+6. Extract maximum speed from collected values
+7. Send via BLE
+8. Start 3000ms cooldown (ignore incoming readings)
+9. After cooldown → ready for next delivery
+
+These values can be adjusted during calibration.
+
+----------------------------------------------------------
+When Ball Speed Is Sent to Mobile App
+----------------------------------------------------------
+
+Exact Trigger:
+
+Speed is NOT sent while the ball is in flight.
+Speed is sent AFTER the ball has fully passed the radar
+and the tracking session ends.
+
+Detailed Timing:
+
+Event                                  Time (approximate)
+-----                                  ------------------
+Bowler releases ball                   T + 0 ms
+Ball enters radar detection zone       T + 200–400 ms
+Radar starts sending speed values      T + 200–400 ms
+ESP32 starts tracking (speed > 20)     T + 200–400 ms
+Ball passes radar, speed drops < 10    T + 400–700 ms
+ESP32 picks maximum speed value        T + 400–700 ms
+ESP32 sends BLE notification           T + 400–750 ms
+Flutter app receives speed             T + 450–850 ms
+Speed appears on mobile screen         T + 500–900 ms
+
+Total delay from ball release to screen: ~0.5 to 1 second
+
+----------------------------------------------------------
+Full Delivery Cycle — Ball by Ball Flow
+----------------------------------------------------------
+
+DELIVERY 1:
+
+  Step 1 — Ready State
+  ┌─────────────────────────────┐
+  │  App Screen:                │
+  │                             │
+  │   🟢 READY                  │
+  │   Waiting for delivery...   │
+  │                             │
+  │   Last Speed: 116 km/h      │
+  └─────────────────────────────┘
+  ESP32: Radar active, listening
+
+        ↓  Bowler bowls
+
+  Step 2 — Ball in Flight (ESP32 tracking silently)
+  ┌─────────────────────────────┐
+  │  App Screen:                │
+  │                             │
+  │   🟢 READY                  │
+  │   Waiting for delivery...   │
+  │                             │
+  │   Last Speed: 116 km/h      │
+  └─────────────────────────────┘
+  ESP32: Collecting speed values [65, 98, 116, 113, 100]
+  App: No change yet (ball still in air)
+
+        ↓  Ball passes radar, speed drops to 0
+
+  Step 3 — Speed Detected, BLE Sent
+  ESP32: Max speed = 122 km/h → sends BLE notification
+
+  ┌─────────────────────────────┐
+  │  App Screen:                │
+  │                             │
+  │        122 km/h             │  ← Big bold display
+  │                             │
+  │   ⚡ Ball Speed Detected     │
+  │                             │
+  └─────────────────────────────┘
+
+        ↓  3 second cooldown starts on ESP32
+        ↓  App holds this speed on screen
+
+  Step 4 — Cooldown Period (3 seconds)
+  ┌─────────────────────────────┐
+  │  App Screen:                │
+  │                             │
+  │        122 km/h             │  ← Still showing
+  │                             │
+  │   Next ball in 3s...        │
+  │   [==========>    ]  2s     │  ← Optional countdown
+  │                             │
+  └─────────────────────────────┘
+  ESP32: Ignoring all radar input during cooldown
+
+        ↓  3 seconds pass
+
+  Step 5 — Reset to Ready for Next Ball
+  ┌─────────────────────────────┐
+  │  App Screen:                │
+  │                             │
+  │   🟢 READY                  │
+  │   Waiting for delivery...   │
+  │                             │
+  │   Last Speed: 122 km/h      │  ← Previous ball shown
+  └─────────────────────────────┘
+  ESP32: Cooldown done, radar active again
+
+        ↓  Bowler bowls next ball → cycle repeats
+
+----------------------------------------------------------
+How Next Ball Speed Is Displayed
+----------------------------------------------------------
+
+Rule:
+
+When a new speed arrives via BLE,
+the app immediately replaces the previous speed
+with the new speed.
+
+Previous ball: 122 km/h  →  New ball: 108 km/h
+
+Screen transition:
+
+  ┌──────────────┐       ┌──────────────┐
+  │  122 km/h    │  →→→  │  108 km/h    │
+  │  Last ball   │       │  New ball    │
+  └──────────────┘       └──────────────┘
+
+The old speed moves to "Last Speed" or history list.
+The new speed takes the main display spot.
+
+Display States Summary:
+
+State            What App Shows
+-----            --------------
+Waiting          "Ready — Waiting for delivery"
+                 + Last ball speed in smaller text
+
+Speed Received   New speed in large bold text
+                 Animation/flash to grab attention
+
+Cooldown         Speed still showing
+                 Optional: small countdown timer
+
+BLE Disconnected "Device disconnected — Reconnecting..."
+                 Last known speed still visible
+
+----------------------------------------------------------
+BLE Data Flow — Delivery by Delivery
+----------------------------------------------------------
+
+Delivery 1:
+ESP32 → BLE notify → { "speed": 122, "unit": "km/h", "timestamp": "...", "delivery": 1 }
+App displays: 122 km/h
+
+        ↓  3s cooldown
+
+Delivery 2:
+ESP32 → BLE notify → { "speed": 108, "unit": "km/h", "timestamp": "...", "delivery": 2 }
+App displays: 108 km/h  (replaces 122)
+
+        ↓  3s cooldown
+
+Delivery 3:
+ESP32 → BLE notify → { "speed": 134, "unit": "km/h", "timestamp": "...", "delivery": 3 }
+App displays: 134 km/h  (replaces 108)
+
+Each delivery is also saved to local history list in the app.
+
+Note for ESP32 firmware:
+
+Add "delivery" counter field to BLE packet.
+Increment counter on every valid speed detection.
+Reset counter when new match/session starts.
+
+----------------------------------------------------------
 How Bat Movement Is Avoided
 ----------------------------------------------------------
 
@@ -405,12 +912,40 @@ Ignore:
 ✗ Random movement
 
 ----------------------------------------------------------
+BLE Configuration
+----------------------------------------------------------
+
+BLE Device Name:
+
+CricketSpeedTracker
+
+BLE Service UUID:
+
+4FAFC201-1FB5-459E-8FCC-C5C9C331914B
+
+BLE Characteristic UUID (Speed Data):
+
+BEB5483E-36E1-4688-B7F5-EA07361B26A8
+
+Characteristic Properties:
+
+NOTIFY (ESP32 pushes data to Flutter when new speed is ready)
+READ   (Flutter can request last known speed at any time)
+
+Note for firmware developer:
+
+These UUIDs are fixed and must match exactly in both
+ESP32 firmware and Flutter application code.
+
+----------------------------------------------------------
 BLE Connection Flow
 ----------------------------------------------------------
 
-ESP32 starts BLE service
+ESP32 powers on
         ↓
-ESP32 advertises device
+ESP32 auto-starts BLE advertising immediately
+        ↓
+ESP32 starts BLE service
 
 Device Name:
 
@@ -439,6 +974,36 @@ ESP32 sends speed data
         ↓
 
 Flutter receives speed information
+
+----------------------------------------------------------
+BLE Power-On Behavior
+----------------------------------------------------------
+
+On power-on ESP32 must:
+
+1. Initialize UART2 for radar communication
+2. Auto-start BLE advertising (no button press needed)
+3. Keep advertising until Flutter connects
+4. After connection: stop advertising, start radar processing
+5. Connection status is shown on the Flutter mobile app only
+
+----------------------------------------------------------
+BLE Reconnection Logic
+----------------------------------------------------------
+
+If Flutter disconnects during match:
+
+1. ESP32 detects disconnection event
+2. ESP32 immediately restarts BLE advertising automatically
+3. Radar processing continues in background (no data lost)
+4. Flutter reconnects and resumes receiving data
+5. No manual reset of ESP32 required
+
+Important:
+
+ESP32 firmware must handle onDisconnect callback and
+restart advertising automatically.
+Do NOT require physical reset on disconnect.
 
 ----------------------------------------------------------
 Data Packet Structure
@@ -494,14 +1059,37 @@ Expected Result:
 Stable and accurate measurements
 
 ----------------------------------------------------------
+Performance Requirements
+----------------------------------------------------------
+
+Detection Range:
+
+Minimum: 5 meters (ball must be detected at least 5m away)
+Recommended: 8–10 meters (full box cricket pitch length)
+
+Speed Range:
+
+Minimum detectable: 20 km/h
+Maximum expected:   150 km/h (box cricket typical range)
+
+Accuracy Target:
+
+Acceptable error margin: ±5 km/h
+Goal after calibration:  ±2–3 km/h
+
+Latency Target:
+
+Speed must appear on Flutter app within 1–2 seconds of ball passing radar.
+
+----------------------------------------------------------
 Approximate Hardware Pricing
 ----------------------------------------------------------
 
-24GHz Radar:
+24GHz Radar (HLK-LD303):
 
 ₹4,000–₹6,000
 
-ESP32:
+ESP32 DevKit V1:
 
 ₹400–₹800
 
@@ -509,19 +1097,71 @@ Jumper Wires:
 
 ₹100–₹200
 
+Logic Level Shifter (if needed):
+
+₹50–₹150
+
+100µF Capacitor:
+
+₹10–₹30
+
 Tripod:
 
 ₹300–₹800
 
-Enclosure:
+Enclosure (Optional):
 
 ₹300–₹800
 
 Approximate Total:
 
-₹5,100–₹8,600
+₹5,160–₹8,780
 
 (Power bank excluded because already available)
+
+----------------------------------------------------------
+Hardware Validation Checklist (For Electrical Engineer)
+----------------------------------------------------------
+
+Before handing over to software team, verify the following:
+
+Step 1 — Power Check:
+
+[ ] Radar powers on from 5V (measure with multimeter)
+[ ] ESP32 powers on from VIN 5V (measure with multimeter)
+[ ] Both share common GND
+[ ] Current draw within expected range (180–550mA total)
+
+Step 2 — UART Communication Check:
+
+[ ] Connect ESP32 to PC via USB
+[ ] Open Serial Monitor at 115200 baud
+[ ] Verify raw data packets are received from radar
+[ ] Confirm data format matches expected output (speed values visible)
+[ ] Confirm no garbage data (if garbage, check baud rate or logic level)
+
+Step 3 — Logic Level Check:
+
+[ ] Measure radar TX voltage with multimeter
+[ ] If > 3.3V → install logic level shifter
+[ ] After shifter: measure again, confirm 3.3V at ESP32 RX pin
+
+Step 4 — BLE Check:
+
+[ ] Flash basic BLE advertise firmware to ESP32
+[ ] Open mobile Bluetooth scanner (nRF Connect app)
+[ ] Confirm "CricketSpeedTracker" device appears in scan
+[ ] Confirm BLE service and characteristic UUIDs are visible
+
+Step 5 — End-to-End Check:
+
+[ ] Flash full firmware to ESP32
+[ ] Connect Flutter app via BLE
+[ ] Move hand or object in front of radar
+[ ] Confirm speed value appears on Flutter app
+[ ] Confirm speed value appears on Flutter mobile app
+[ ] Simulate disconnect from Flutter app
+[ ] Confirm ESP32 auto re-advertises without reset
 
 ----------------------------------------------------------
 Current MVP Limitations
@@ -533,4 +1173,257 @@ Current MVP Limitations
 - Multiple moving objects can affect readings
 - Testing required under real match conditions
 - Accuracy may vary during initial setup
+
+----------------------------------------------------------
+Complete Example Flow — One Ball, Start to End
+----------------------------------------------------------
+
+Scenario:
+  Match: Friday Box Cricket
+  Bowler: Ravi
+  Batter: Suresh
+  System: Powered on, Flutter app connected via BLE
+
+===========================================================
+PHASE 1 — SYSTEM READY
+===========================================================
+
+  Hardware State:
+  ┌─────────────────────────────────────────────┐
+  │  Power Bank ON                              │
+  │  ESP32 running                              │
+  │  Radar active, scanning continuously        │
+  │  BLE connected to Flutter app               │
+  │  Cooldown: inactive                         │
+  │  Current radar reading: 0 km/h (no object) │
+  └─────────────────────────────────────────────┘
+
+  Mobile App Screen:
+  ┌─────────────────────────────────────────────┐
+  │                                             │
+  │   🟢 Connected  — CricketSpeedTracker       │
+  │                                             │
+  │         READY                               │
+  │   Waiting for delivery...                   │
+  │                                             │
+  │   Last Speed:  116 km/h                     │
+  │                                             │
+  └─────────────────────────────────────────────┘
+
+===========================================================
+PHASE 2 — BOWLER RUNS UP AND RELEASES BALL
+===========================================================
+
+  T = 0 ms
+  Ravi releases the ball from the bowling crease.
+  Ball is now travelling toward the batter at high speed.
+
+  Hardware State:
+  ┌─────────────────────────────────────────────┐
+  │  Radar: still reading 0 km/h                │
+  │  Ball not yet in radar detection zone       │
+  │  ESP32: waiting                             │
+  └─────────────────────────────────────────────┘
+
+  Mobile App Screen: (no change)
+  ┌─────────────────────────────────────────────┐
+  │   🟢 Connected  — CricketSpeedTracker       │
+  │         READY                               │
+  │   Waiting for delivery...                   │
+  │   Last Speed:  116 km/h                     │
+  └─────────────────────────────────────────────┘
+
+===========================================================
+PHASE 3 — BALL ENTERS RADAR DETECTION ZONE
+===========================================================
+
+  T = ~300 ms
+  Ball approaches the radar (placed 1m behind batter).
+  Radar detects movement. Reflected signal frequency shifts.
+
+  Radar raw output starts streaming to ESP32 via UART:
+
+    Serial data:  "45\n"   → 45 km/h
+    Serial data:  "89\n"   → 89 km/h
+    Serial data:  "112\n"  → 112 km/h
+    Serial data:  "124\n"  → 124 km/h
+
+  ESP32 Processing:
+  ┌─────────────────────────────────────────────┐
+  │  Read: 45 km/h  → exceeds 20 km/h          │
+  │  Tracking session STARTED                   │
+  │  Collecting values...                       │
+  │  Buffer: [45, 89, 112, 124]                 │
+  └─────────────────────────────────────────────┘
+
+  Mobile App Screen: (still no change — ball still moving)
+  ┌─────────────────────────────────────────────┐
+  │   🟢 Connected  — CricketSpeedTracker       │
+  │         READY                               │
+  │   Waiting for delivery...                   │
+  │   Last Speed:  116 km/h                     │
+  └─────────────────────────────────────────────┘
+
+===========================================================
+PHASE 4 — BALL PASSES RADAR
+===========================================================
+
+  T = ~550 ms
+  Ball passes radar and moves away. Speed drops rapidly.
+
+  Radar raw output:
+
+    Serial data:  "119\n"  → 119 km/h
+    Serial data:  "98\n"   → 98 km/h
+    Serial data:  "61\n"   → 61 km/h
+    Serial data:  "8\n"    →  8 km/h  ← drops below 10
+
+  ESP32 Processing:
+  ┌─────────────────────────────────────────────┐
+  │  Speed dropped below 10 km/h               │
+  │  Tracking session ENDED                     │
+  │  Full buffer: [45, 89, 112, 124, 119, 98,  │
+  │                61, 8]                       │
+  │  Maximum value found: 124 km/h             │
+  │  Tracking duration: ~250ms (valid — < 2s)  │
+  └─────────────────────────────────────────────┘
+
+===========================================================
+PHASE 5 — ESP32 SENDS SPEED VIA BLE
+===========================================================
+
+  T = ~600 ms
+  ESP32 sends BLE notification to Flutter app.
+
+  BLE Packet sent:
+
+  {
+     "speed": 124,
+     "unit": "km/h",
+     "timestamp": "1715702310",
+     "delivery": 1
+  }
+
+  ESP32 immediately starts 3000ms cooldown.
+  Radar input ignored during cooldown.
+
+===========================================================
+PHASE 6 — FLUTTER APP RECEIVES AND DISPLAYS SPEED
+===========================================================
+
+  T = ~650 ms
+  Flutter app receives BLE notification.
+  App updates UI immediately.
+
+  Mobile App Screen:
+  ┌─────────────────────────────────────────────┐
+  │                                             │
+  │   🟢 Connected  — CricketSpeedTracker       │
+  │                                             │
+  │          124 km/h                           │
+  │                                             │
+  │        Ball Speed Detected                  │
+  │                                             │
+  │   Delivery #1                               │
+  └─────────────────────────────────────────────┘
+
+  Speed 124 km/h is saved to local history in the app.
+  Previous speed (116 km/h) moves to history list.
+
+===========================================================
+PHASE 7 — COOLDOWN PERIOD (3 SECONDS)
+===========================================================
+
+  T = 600 ms to 3600 ms
+
+  ESP32 State:
+  ┌─────────────────────────────────────────────┐
+  │  Cooldown active                            │
+  │  All radar readings ignored                 │
+  │  Reason: avoid bat swing / fielder movement │
+  │  Cooldown ends at T = 3600 ms               │
+  └─────────────────────────────────────────────┘
+
+  Mobile App Screen: (speed stays on screen)
+  ┌─────────────────────────────────────────────┐
+  │   🟢 Connected  — CricketSpeedTracker       │
+  │                                             │
+  │          124 km/h                           │
+  │                                             │
+  │        Ball Speed Detected                  │
+  │   Delivery #1                               │
+  └─────────────────────────────────────────────┘
+
+===========================================================
+PHASE 8 — SYSTEM RESETS, READY FOR NEXT BALL
+===========================================================
+
+  T = 3600 ms (3 seconds after result sent)
+
+  ESP32 State:
+  ┌─────────────────────────────────────────────┐
+  │  Cooldown finished                          │
+  │  Radar listening again                      │
+  │  Ready for Delivery #2                      │
+  └─────────────────────────────────────────────┘
+
+  Mobile App Screen:
+  ┌─────────────────────────────────────────────┐
+  │                                             │
+  │   🟢 Connected  — CricketSpeedTracker       │
+  │                                             │
+  │         READY                               │
+  │   Waiting for delivery...                   │
+  │                                             │
+  │   Last Speed:  124 km/h                     │
+  │                                             │
+  └─────────────────────────────────────────────┘
+
+  System is fully reset. Next ball can be bowled.
+
+===========================================================
+COMPLETE TIMELINE SUMMARY
+===========================================================
+
+  T = 0 ms      Bowler releases ball
+  T = 300 ms    Ball enters radar zone, ESP32 starts tracking
+  T = 550 ms    Ball passes radar, tracking session ends
+  T = 600 ms    ESP32 calculates max speed (124 km/h), sends BLE
+  T = 650 ms    Flutter app receives speed, screen updates
+  T = 650 ms    3 second cooldown begins on ESP32
+  T = 3650 ms   Cooldown ends, system ready for next delivery
+
+  Total time from ball release to screen: ~0.65 seconds
+  Total time for system to reset for next ball: ~3.65 seconds
+
+===========================================================
+WHAT HAPPENS IF SOMETHING GOES WRONG
+===========================================================
+
+Scenario 1 — No ball bowled (false trigger):
+  Bat swing detected at 35 km/h
+  ESP32: 35 km/h → above 20 km/h threshold → tracking starts
+  Speed never exceeds 35 km/h consistently
+  Tracking ends at 35 km/h max
+  Result: 35 km/h sent to app
+  Fix: Raise minimum threshold to 40 km/h after calibration
+
+Scenario 2 — BLE disconnects mid-match:
+  ESP32: detects disconnect, restarts BLE advertising instantly
+  Radar continues working in background, no data lost
+  App: shows "Reconnecting..." on screen
+  User: re-opens app or waits for auto-reconnect
+  After reconnect: next delivery speed will appear normally
+
+Scenario 3 — Ball hits radar directly:
+  Radar reads very high noise value (e.g. 200+ km/h)
+  ESP32: value exceeds 200 km/h max threshold → ignored
+  No speed sent to app
+  System resets normally after cooldown
+
+Scenario 4 — Power bank runs out:
+  ESP32 shuts down
+  BLE disconnects
+  App shows "Device disconnected"
+  Recharge power bank and reconnect
 ```
