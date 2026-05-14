@@ -1,0 +1,536 @@
+```text id="u4z7wp"
+----------------------------------------------------------
+Project Name:
+Cricket Ball Speed Tracking System
+----------------------------------------------------------
+
+Project Definition:
+
+The Cricket Ball Speed Tracking System is a hardware and mobile-based solution designed to accurately measure the speed of a cricket ball during play and reduce manual errors or cheating in box cricket matches.
+
+The system uses:
+
+- 24GHz Radar Sensor
+- ESP32 Microcontroller
+- Bluetooth Low Energy (BLE)
+- Flutter Mobile Application
+- Mi Power Bank (20000mAh) as common power source
+
+The goal of the system is to provide reliable, portable and near real-time ball speed measurement without depending on manual judgement.
+
+----------------------------------------------------------
+Hardware Components List
+----------------------------------------------------------
+
+1. 24GHz Radar Sensor
+2. ESP32 DevKit V1 Microcontroller
+3. Jumper Wires
+4. Mi Power Bank (20000mAh)
+5. Tripod / Mount
+6. Enclosure (Optional)
+
+----------------------------------------------------------
+High-Level System Flow
+----------------------------------------------------------
+
+Cricket Ball
+      ↓
+24GHz Radar Sensor
+      ↓
+ESP32 Microcontroller
+      ↓ Bluetooth (BLE)
+Flutter Mobile Application
+      ↓
+Speed Display + History + Analytics
+
+----------------------------------------------------------
+Component: 24GHz Radar Sensor
+----------------------------------------------------------
+
+Definition:
+
+The 24GHz Radar Sensor is the primary sensing component of the Cricket Ball Speed Tracking System.
+
+It uses radar technology to detect moving objects and determine speed by transmitting electromagnetic waves and analyzing reflected signals from the moving cricket ball.
+
+The sensor continuously monitors the target area and generates raw movement and speed information which is processed by ESP32.
+
+----------------------------------------------------------
+
+Role:
+
+The radar acts as the "eye" of the system.
+
+Responsibilities:
+
+- Detect cricket ball movement
+- Measure object speed
+- Generate raw sensor information
+- Send raw data to ESP32
+- Continuously monitor target area
+
+----------------------------------------------------------
+
+Purpose:
+
+- Capture cricket ball movement
+- Detect object velocity
+- Generate raw sensor output
+- Provide speed information
+
+----------------------------------------------------------
+
+Working Principle:
+
+Radar emits signal
+        ↓
+Signal hits cricket ball
+        ↓
+Ball reflects signal
+        ↓
+Signal returns to radar
+        ↓
+Frequency shift occurs
+        ↓
+Raw movement data generated
+        ↓
+Send to ESP32
+
+----------------------------------------------------------
+Component: ESP32 Microcontroller
+----------------------------------------------------------
+
+Definition:
+
+ESP32 is a low-cost microcontroller board with built-in Bluetooth and WiFi capabilities.
+
+It acts as the processing and communication unit of the complete system.
+
+ESP32 works as the bridge between hardware and mobile application.
+
+----------------------------------------------------------
+
+Role:
+
+ESP32 acts as the "brain" of the system.
+
+Responsibilities:
+
+- Receive radar sensor data
+- Read incoming packets
+- Parse sensor data
+- Remove invalid movement
+- Filter noise
+- Detect actual cricket ball movement
+- Extract final speed value
+- Send processed data through BLE
+
+----------------------------------------------------------
+
+Working Principle:
+
+Receive radar data
+        ↓
+Read packets
+        ↓
+Parse incoming information
+        ↓
+Filter noise
+        ↓
+Detect cricket ball
+        ↓
+Generate final speed
+        ↓
+Send BLE data
+        ↓
+Flutter Application
+
+----------------------------------------------------------
+Communication Connections
+----------------------------------------------------------
+
+Radar TX
+        ↓
+ESP32 RX Pin
+
+Radar RX
+        ↓
+ESP32 TX Pin
+
+Radar VCC
+        ↓
+5V
+
+Radar GND
+        ↓
+ESP32 GND
+
+Important:
+
+ESP32 and Radar should use common ground.
+
+----------------------------------------------------------
+Power Supply Setup
+----------------------------------------------------------
+
+Power Source:
+
+Mi Power Bank
+20000mAh
+
+Role:
+
+- Common power source
+- Supply power to ESP32
+- Supply power to Radar
+- Support portable system usage
+
+Power Architecture:
+
+Mi Power Bank (20000mAh)
+              ↓
+              ├── ESP32
+              │
+              └── Radar Sensor
+
+Advantages:
+
+- Lower wiring complexity
+- Lower cost
+- Easy MVP setup
+- Portable
+
+Estimated Hardware Consumption:
+
+ESP32:
+
+80–250mA
+
+Radar:
+
+100–300mA
+
+Total:
+
+180–550mA
+
+Estimated Runtime:
+
+12–20 Hours
+
+Depending on:
+
+- Radar activity
+- BLE usage
+- Power bank conversion efficiency
+
+----------------------------------------------------------
+Field Placement (Very Important)
+----------------------------------------------------------
+
+Recommended Position:
+
+Bowler
+   ↓
+
+---------------- Pitch ----------------
+
+Ball →→→→→→→→ Batter
+
+                    [Radar]
+                    [ESP32]
+
+Recommended setup:
+
+- Place radar behind batter/wicket
+- Face radar toward bowler
+- Mount radar on tripod
+- Keep radar at stump height
+- Keep approximately 1–2 meters behind batter
+
+Reason:
+
+- Strong signal reflection
+- Better speed accuracy
+- Lower interference
+- Better tracking quality
+
+----------------------------------------------------------
+
+Avoid Position:
+
+Radar
+   |
+   |
+Ball →→→→→→→
+
+Reason:
+
+- Creates angular error
+- Reduced accuracy
+- Lower measured speed
+
+----------------------------------------------------------
+How Radar Detects Ball Speed
+----------------------------------------------------------
+
+Important:
+
+Radar does NOT understand:
+
+- Ball release
+- Bat hit
+- Cricket rules
+- Bowling action
+
+Radar only understands:
+
+"Moving object"
+
+Flow:
+
+Bowler throws ball
+        ↓
+Radar detects movement
+        ↓
+Radar continuously sends values
+        ↓
+ESP32 receives values
+        ↓
+ESP32 processes values
+        ↓
+Maximum speed selected
+        ↓
+Send result
+
+----------------------------------------------------------
+Example Raw Speed Data
+----------------------------------------------------------
+
+Time 1 → 0 km/h
+
+Time 2 → 65 km/h
+
+Time 3 → 98 km/h
+
+Time 4 → 116 km/h
+
+Time 5 → 113 km/h
+
+Time 6 → 100 km/h
+
+Time 7 → 60 km/h
+
+Time 8 → 0 km/h
+
+----------------------------------------------------------
+ESP32 Processing Logic
+----------------------------------------------------------
+
+Receive values
+        ↓
+Speed exceeds threshold?
+        ↓
+Start tracking
+        ↓
+Store incoming values
+        ↓
+Find maximum speed
+        ↓
+Object disappears
+        ↓
+Send final result
+
+Example:
+
+Incoming:
+
+65
+98
+116
+113
+100
+
+Output:
+
+116 km/h
+
+----------------------------------------------------------
+How Bat Movement Is Avoided
+----------------------------------------------------------
+
+Possible detections:
+
+- Cricket ball movement
+- Bat movement
+- Player movement
+- Random movement
+
+Example:
+
+Bowled ball → 116 km/h
+
+Bat movement → 40 km/h
+
+Player movement → 8 km/h
+
+Filtering Logic:
+
+If speed < 20 km/h
+
+Ignore
+
+If movement duration is too long
+
+Ignore
+
+Take first fast-moving object
+
+Save maximum speed
+
+Stop tracking after object passes
+
+Expected Result:
+
+Capture:
+
+✓ Bowling speed
+
+Ignore:
+
+✗ Bat movement
+
+✗ Player movement
+
+✗ Random movement
+
+----------------------------------------------------------
+BLE Connection Flow
+----------------------------------------------------------
+
+ESP32 starts BLE service
+        ↓
+ESP32 advertises device
+
+Device Name:
+
+CricketSpeedTracker
+
+        ↓
+
+Flutter scans devices
+
+        ↓
+
+User selects device
+
+        ↓
+
+BLE connection established
+
+        ↓
+
+Flutter subscribes to characteristics
+
+        ↓
+
+ESP32 sends speed data
+
+        ↓
+
+Flutter receives speed information
+
+----------------------------------------------------------
+Data Packet Structure
+----------------------------------------------------------
+
+Example BLE Packet:
+
+{
+   "speed":116,
+   "unit":"km/h",
+   "timestamp":"1715702010",
+   "match":"Friday Match"
+}
+
+Fields:
+
+speed:
+Detected ball speed
+
+unit:
+Measurement unit
+
+timestamp:
+Detection time
+
+match:
+Current session identifier
+
+----------------------------------------------------------
+Calibration Process
+----------------------------------------------------------
+
+Purpose:
+
+Improve speed accuracy
+
+Steps:
+
+1. Place radar correctly
+
+2. Set radar at stump height
+
+3. Bowl test deliveries
+
+4. Compare values
+
+5. Tune filtering values
+
+6. Repeat testing
+
+Expected Result:
+
+Stable and accurate measurements
+
+----------------------------------------------------------
+Approximate Hardware Pricing
+----------------------------------------------------------
+
+24GHz Radar:
+
+₹4,000–₹6,000
+
+ESP32:
+
+₹400–₹800
+
+Jumper Wires:
+
+₹100–₹200
+
+Tripod:
+
+₹300–₹800
+
+Enclosure:
+
+₹300–₹800
+
+Approximate Total:
+
+₹5,100–₹8,600
+
+(Power bank excluded because already available)
+
+----------------------------------------------------------
+Current MVP Limitations
+----------------------------------------------------------
+
+- Small fast-moving cricket balls require calibration
+- Nearby movement can introduce noise
+- Sensor placement affects accuracy
+- Multiple moving objects can affect readings
+- Testing required under real match conditions
+- Accuracy may vary during initial setup
+```
