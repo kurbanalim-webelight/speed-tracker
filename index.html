@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cricket Speed Tracker — Proposal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0D1117;
+    --bg2:      #111820;
+    --card:     #161D27;
+    --card2:    #1A2232;
+    --green:    #4ADE80;
+    --green-dim: rgba(74,222,128,0.12);
+    --green-border: rgba(74,222,128,0.25);
+    --purple:   #818CF8;
+    --white:    #FFFFFF;
+    --gray:     #8B9AB5;
+    --gray-dim: #4A5568;
+    --border:   rgba(255,255,255,0.07);
+    --border2:  rgba(255,255,255,0.12);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+
+  body {
+    font-family:'Inter',sans-serif;
+    background:var(--bg);
+    color:var(--white);
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position:fixed; top:0; left:0; right:0; z-index:200;
+    height:52px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 40px;
+    background:rgba(13,17,23,0.9);
+    backdrop-filter:blur(16px);
+    border-bottom:1px solid var(--border);
+  }
+  .nav-logo {
+    display:flex; align-items:center; gap:8px;
+    font-size:15px; font-weight:700; color:var(--white);
+    text-decoration:none;
+  }
+  .nav-logo-icon {
+    color:var(--green); font-size:13px;
+  }
+  .nav-logo span { color:var(--green); }
+  .nav-links { display:flex; gap:4px; }
+  .nav-links a {
+    font-size:13px; font-weight:500;
+    color:var(--gray); text-decoration:none;
+    padding:6px 14px; border-radius:6px;
+    transition:color 0.2s, background 0.2s;
+    position:relative;
+  }
+  .nav-links a:hover { color:var(--white); }
+  .nav-links a.active {
+    color:var(--green);
+  }
+  .nav-links a.active::after {
+    content:''; position:absolute; bottom:-14px; left:14px; right:14px;
+    height:2px; background:var(--green); border-radius:2px;
+  }
+  @media(max-width:680px){ .nav-links{display:none;} .nav{padding:0 20px;} }
+
+  /* ── HERO ── */
+  .hero {
+    min-height:100vh;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    text-align:center;
+    padding:120px 24px 80px;
+    position:relative; overflow:hidden;
+  }
+  .hero::before {
+    content:'';
+    position:absolute; top:-200px; left:50%; transform:translateX(-50%);
+    width:700px; height:700px; border-radius:50%;
+    background:radial-gradient(ellipse, rgba(74,222,128,0.07) 0%, transparent 70%);
+    pointer-events:none;
+  }
+
+  .pill {
+    display:inline-flex; align-items:center; gap:8px;
+    border:1px solid var(--border2);
+    background:rgba(255,255,255,0.04);
+    color:var(--gray);
+    font-size:11px; font-weight:600; letter-spacing:2px;
+    padding:6px 16px; border-radius:100px;
+    margin-bottom:28px; text-transform:uppercase;
+  }
+  .pill-dot {
+    width:6px; height:6px; border-radius:50%;
+    background:var(--green);
+    box-shadow:0 0 8px var(--green);
+    animation:blink 1.6s infinite;
+  }
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.25}}
+
+  .hero h1 {
+    font-size:clamp(40px,8vw,90px);
+    font-weight:800; line-height:1.05;
+    letter-spacing:-2px; color:var(--white);
+    margin-bottom:10px; position:relative; z-index:1;
+  }
+  .hero h1 em {
+    font-style:normal; color:var(--green);
+  }
+  .hero-sub {
+    font-size:clamp(15px,2vw,20px); font-weight:400;
+    color:var(--gray); margin-bottom:30px;
+    position:relative; z-index:1; max-width:500px;
+    line-height:1.7;
+  }
+  .hero-stats {
+    display:flex; gap:14px; flex-wrap:wrap; justify-content:center;
+    position:relative; z-index:1;
+    margin-top:10px;
+  }
+  .stat-card {
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px; padding:18px 26px; text-align:center;
+  }
+  .stat-card .n {
+    font-size:28px; font-weight:800; color:var(--white);
+    display:block; line-height:1;
+  }
+  .stat-card .n span { color:var(--green); }
+  .stat-card .l {
+    font-size:11px; color:var(--gray); display:block;
+    margin-top:5px; letter-spacing:0.5px;
+  }
+  .scroll-hint {
+    position:absolute; bottom:32px; left:50%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    color:var(--gray-dim); font-size:10px; letter-spacing:2px;
+    text-transform:uppercase; animation:bob 2s infinite;
+  }
+  .scroll-hint::after {
+    content:''; width:1px; height:36px;
+    background:linear-gradient(to bottom, var(--gray-dim), transparent);
+  }
+  @keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(6px)}}
+
+  /* ── SECTIONS ── */
+  section { padding:96px 24px; position:relative; z-index:1; }
+  .section-alt { background:var(--bg2); }
+  .container { max-width:1080px; margin:0 auto; }
+  .section-sep {
+    height:1px;
+    background:linear-gradient(90deg,transparent,var(--border2),transparent);
+    margin:0 auto; max-width:800px;
+  }
+
+  .section-label {
+    display:inline-flex; align-items:center;
+    border:1px solid var(--border2);
+    background:rgba(255,255,255,0.03);
+    color:var(--gray); font-size:10px; font-weight:700;
+    letter-spacing:2.5px; padding:5px 14px; border-radius:100px;
+    text-transform:uppercase; margin-bottom:20px;
+  }
+  .section-h {
+    font-size:clamp(26px,5vw,52px); font-weight:800;
+    letter-spacing:-1.5px; color:var(--white);
+    line-height:1.1; margin-bottom:14px;
+  }
+  .section-p {
+    font-size:16px; font-weight:400; color:var(--gray);
+    max-width:560px; line-height:1.75; margin-bottom:56px;
+  }
+  .center { text-align:center; }
+  .center .section-p { margin-left:auto; margin-right:auto; }
+
+  /* ── CARDS ── */
+  .grid-3 {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px;
+  }
+  .grid-2 {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px;
+  }
+
+  .card {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:28px; transition:all 0.25s;
+  }
+  .card:hover {
+    border-color:var(--border2);
+    background:var(--card2);
+    transform:translateY(-3px);
+  }
+  .card-icon { font-size:32px; margin-bottom:16px; display:block; }
+  .card-title {
+    font-size:17px; font-weight:700; color:var(--white); margin-bottom:8px;
+  }
+  .card-sub {
+    font-size:11px; font-weight:600; color:var(--green);
+    letter-spacing:1px; text-transform:uppercase; margin-bottom:8px;
+  }
+  .card-text { font-size:14px; color:var(--gray); line-height:1.7; }
+
+  /* ── FLOW STEPS ── */
+  .flow-list { display:flex; flex-direction:column; gap:0; position:relative; }
+  .flow-list::before {
+    content:''; position:absolute; left:27px; top:28px; bottom:28px;
+    width:1px; background:linear-gradient(180deg,var(--green),rgba(74,222,128,0.05));
+  }
+  .flow-item {
+    display:flex; gap:24px; padding:16px 0;
+    opacity:0; transform:translateX(-16px);
+    transition:opacity 0.55s, transform 0.55s;
+  }
+  .flow-item.vis { opacity:1; transform:translateX(0); }
+  .flow-num {
+    width:56px; height:56px; min-width:56px;
+    border-radius:50%;
+    background:var(--card2); border:1px solid var(--green-border);
+    display:flex; align-items:center; justify-content:center;
+    font-size:22px; position:relative; z-index:2;
+    flex-shrink:0;
+  }
+  .flow-body { padding-top:10px; }
+  .flow-body h3 {
+    font-size:17px; font-weight:700; color:var(--white); margin-bottom:6px;
+  }
+  .flow-body p { font-size:14px; color:var(--gray); line-height:1.7; }
+
+  /* ── SPEED DISPLAY ── */
+  .speed-box {
+    background:var(--card);
+    border:1px solid var(--green-border);
+    border-radius:24px; padding:64px 40px;
+    text-align:center; position:relative; overflow:hidden;
+  }
+  .speed-box::before {
+    content:''; position:absolute; top:-100px; left:50%; transform:translateX(-50%);
+    width:500px; height:300px; border-radius:50%;
+    background:radial-gradient(ellipse, rgba(74,222,128,0.08) 0%, transparent 70%);
+    pointer-events:none;
+  }
+  .speed-num {
+    font-size:clamp(96px,20vw,180px);
+    font-weight:900; letter-spacing:-6px;
+    color:var(--white); line-height:1;
+    position:relative; z-index:1;
+    transition:all 0.22s ease;
+  }
+  .speed-unit {
+    font-size:20px; font-weight:500;
+    color:var(--green); margin-top:6px;
+    position:relative; z-index:1;
+  }
+  .speed-label {
+    font-size:12px; color:var(--gray); letter-spacing:2px;
+    text-transform:uppercase; margin-top:16px;
+    position:relative; z-index:1;
+  }
+
+  /* ── WIRING SVG WRAPPER ── */
+  .wire-box {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:20px; padding:36px;
+  }
+  .wire-legend {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+    gap:10px; margin-top:24px;
+  }
+  .wire-leg-item {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 14px;
+    background:rgba(255,255,255,0.03); border:1px solid var(--border);
+    border-radius:10px;
+  }
+  .wire-dot { width:18px; height:3px; border-radius:2px; flex-shrink:0; }
+  .wire-leg-item span { font-size:12px; color:var(--gray); }
+
+  /* ── FIELD DIAGRAM ── */
+  .field-box {
+    background:rgba(74,222,128,0.03);
+    border:1px solid var(--green-border); border-radius:20px; padding:36px;
+  }
+  .field-label-row {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px;
+    margin-top:20px;
+  }
+  .field-label-item {
+    background:var(--card); border:1px solid var(--border); border-radius:10px;
+    padding:14px 18px;
+  }
+  .field-label-item p { font-size:13px; color:var(--gray); }
+  .field-label-item strong { color:var(--white); }
+
+  /* ── TIMELINE ── */
+  .tl { position:relative; padding-left:40px; }
+  .tl::before {
+    content:''; position:absolute; left:17px; top:0; bottom:0;
+    width:1px; background:linear-gradient(180deg,var(--green),rgba(74,222,128,0.04));
+  }
+  .tl-item {
+    position:relative; margin-bottom:32px;
+    opacity:0; transform:translateY(16px);
+    transition:opacity 0.5s, transform 0.5s;
+  }
+  .tl-item.vis { opacity:1; transform:translateY(0); }
+  .tl-dot {
+    position:absolute; left:-31px; top:5px;
+    width:14px; height:14px; border-radius:50%;
+    background:var(--green); border:3px solid var(--bg);
+    box-shadow:0 0 10px rgba(74,222,128,0.6);
+  }
+  .tl-time {
+    font-size:10px; font-weight:700; color:var(--green);
+    letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;
+  }
+  .tl-title { font-size:16px; font-weight:700; color:var(--white); margin-bottom:4px; }
+  .tl-desc { font-size:13px; color:var(--gray); line-height:1.7; }
+
+  /* ── BAR CHART ── */
+  .bar-row { margin-bottom:10px; }
+  .bar-meta {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:5px;
+  }
+  .bar-key { font-size:12px; color:var(--gray); }
+  .bar-val { font-size:12px; font-weight:700; color:var(--white); }
+  .bar-track {
+    height:6px; background:rgba(255,255,255,0.06);
+    border-radius:4px; overflow:hidden;
+  }
+  .bar-fill {
+    height:100%; border-radius:4px;
+    background:var(--green); transition:width 1s ease;
+  }
+  .bar-fill.peak { box-shadow:0 0 10px rgba(74,222,128,0.5); }
+
+  /* ── APP FRAMES ── */
+  .app-screens {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px;
+  }
+  .app-wrap { display:flex; flex-direction:column; gap:10px; }
+  .app-state-label {
+    font-size:10px; font-weight:700; color:var(--gray);
+    letter-spacing:2px; text-transform:uppercase; text-align:center;
+  }
+  .app-frame {
+    background:#10161F; border:1px solid var(--border);
+    border-radius:24px; padding:20px 16px;
+    position:relative;
+  }
+  .app-frame::before {
+    content:''; display:block; width:56px; height:4px; border-radius:2px;
+    background:rgba(255,255,255,0.08); margin:0 auto 16px;
+  }
+  .app-status-bar {
+    font-size:10px; color:rgba(74,222,128,0.5);
+    text-align:center; margin-bottom:14px; font-weight:500;
+  }
+  .app-speed-big {
+    font-size:52px; font-weight:900; letter-spacing:-2px;
+    color:var(--white); text-align:center; line-height:1;
+    margin:12px 0 6px;
+  }
+  .app-kmh {
+    font-size:14px; font-weight:500; color:var(--green);
+    text-align:center; margin-bottom:10px;
+  }
+  .app-caption {
+    font-size:11px; color:var(--gray-dim); text-align:center;
+    letter-spacing:1px; text-transform:uppercase;
+  }
+  .app-ready {
+    font-size:22px; font-weight:800; color:var(--green);
+    text-align:center; padding:16px 0 8px;
+  }
+  .app-waiting {
+    font-size:12px; color:var(--gray-dim); text-align:center; margin-bottom:12px;
+  }
+  .app-last {
+    background:rgba(74,222,128,0.06); border:1px solid rgba(74,222,128,0.15);
+    border-radius:10px; padding:10px; text-align:center;
+  }
+  .app-last-label { font-size:10px; color:rgba(74,222,128,0.4); margin-bottom:2px; }
+  .app-last-val { font-size:18px; font-weight:700; color:rgba(74,222,128,0.6); }
+  .app-prog-bar { height:4px; background:rgba(255,255,255,0.06); border-radius:2px; margin:10px 0; overflow:hidden; }
+  .app-prog-fill {
+    height:100%; border-radius:2px; background:var(--green);
+    animation:prog 1.3s ease-in-out infinite alternate; width:50%;
+  }
+  @keyframes prog{from{width:20%}to{width:80%}}
+  .app-disco {
+    background:rgba(255,80,80,0.08); border:1px solid rgba(255,80,80,0.2);
+    border-radius:10px; padding:8px; text-align:center;
+    font-size:11px; color:rgba(255,100,100,0.65); margin-top:10px;
+  }
+
+  /* ── SPECS TABLE ── */
+  .specs-grid {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px;
+  }
+  .spec-item {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:12px; padding:14px 18px;
+    display:flex; justify-content:space-between; align-items:center;
+    transition:border-color 0.2s;
+  }
+  .spec-item:hover { border-color:var(--border2); }
+  .spec-k { font-size:13px; color:var(--gray); }
+  .spec-v { font-size:13px; font-weight:700; color:var(--white); }
+
+  /* ── COST TABLE ── */
+  .cost-table {
+    width:100%; border-collapse:collapse;
+    background:var(--card); border-radius:16px; overflow:hidden;
+    border:1px solid var(--border);
+  }
+  .cost-table thead tr {
+    background:rgba(74,222,128,0.07);
+    border-bottom:1px solid var(--green-border);
+  }
+  .cost-table th {
+    padding:14px 20px; font-size:11px; font-weight:700;
+    letter-spacing:2px; text-transform:uppercase; color:var(--green); text-align:left;
+  }
+  .cost-table td {
+    padding:13px 20px; font-size:13px; color:var(--gray);
+    border-bottom:1px solid rgba(255,255,255,0.04);
+  }
+  .cost-table td strong { color:var(--white); font-weight:600; }
+  .cost-table tr:hover td { background:rgba(255,255,255,0.02); }
+  .cost-table tfoot td {
+    font-weight:700; font-size:14px;
+    background:rgba(74,222,128,0.06);
+    border-top:1px solid var(--green-border);
+    color:var(--green);
+  }
+
+  /* ── CHECKLIST ── */
+  .check-group { margin-bottom:8px; }
+  .check-group-title {
+    font-size:12px; font-weight:700; color:var(--green);
+    letter-spacing:1px; text-transform:uppercase;
+    margin:24px 0 10px; padding-left:8px;
+    border-left:2px solid var(--green);
+  }
+  .checklist { display:flex; flex-direction:column; gap:8px; }
+  .check-item {
+    display:flex; align-items:flex-start; gap:14px;
+    padding:13px 16px; background:var(--card);
+    border:1px solid var(--border); border-radius:12px;
+    cursor:pointer; transition:all 0.2s; user-select:none;
+  }
+  .check-item:hover { border-color:var(--border2); }
+  .check-item.done-item { border-color:rgba(74,222,128,0.2); background:rgba(74,222,128,0.04); }
+  .check-box {
+    width:20px; height:20px; min-width:20px; border-radius:5px;
+    border:1.5px solid var(--gray-dim); margin-top:1px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; transition:all 0.2s; flex-shrink:0;
+  }
+  .check-box.done {
+    background:var(--green); border-color:var(--green); color:#000; font-weight:800;
+  }
+  .check-text { font-size:13px; color:var(--gray); line-height:1.6; }
+
+  /* ── FILTER TAGS ── */
+  .tag-ok {
+    display:inline-block; padding:2px 10px; border-radius:6px;
+    background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.25);
+    color:var(--green); font-size:10px; font-weight:700; letter-spacing:1px;
+    text-transform:uppercase; flex-shrink:0; margin-top:2px;
+  }
+  .tag-no {
+    display:inline-block; padding:2px 10px; border-radius:6px;
+    background:rgba(255,80,80,0.08); border:1px solid rgba(255,80,80,0.2);
+    color:#FF6B6B; font-size:10px; font-weight:700; letter-spacing:1px;
+    text-transform:uppercase; flex-shrink:0; margin-top:2px;
+  }
+
+  /* ── QUICK REF ── */
+  .qref {
+    background:var(--card); border:1px solid var(--green-border);
+    border-radius:20px; padding:40px;
+  }
+  .qref-grid {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:24px; margin-top:28px;
+    border-top:1px solid var(--border); padding-top:28px;
+  }
+  .qref-block h4 {
+    font-size:10px; font-weight:700; letter-spacing:2px;
+    color:var(--green); text-transform:uppercase; margin-bottom:12px;
+  }
+  .qref-block p { font-size:13px; color:var(--gray); line-height:2.1; }
+  .qref-block strong { color:var(--white); font-weight:600; }
+
+  /* ── RADAR PULSE ── */
+  .radar-anim {
+    width:180px; height:180px; position:relative; margin:0 auto 32px;
+  }
+  .radar-ring {
+    position:absolute; border-radius:50%;
+    border:1px solid rgba(74,222,128,0.3);
+    top:50%; left:50%; transform:translate(-50%,-50%);
+    animation:rpulse 3s ease-out infinite;
+  }
+  .radar-ring:nth-child(1){width:36px;height:36px;animation-delay:0s;}
+  .radar-ring:nth-child(2){width:72px;height:72px;animation-delay:0.5s;}
+  .radar-ring:nth-child(3){width:108px;height:108px;animation-delay:1s;}
+  .radar-ring:nth-child(4){width:144px;height:144px;animation-delay:1.5s;}
+  .radar-ring:nth-child(5){width:180px;height:180px;animation-delay:2s;}
+  .radar-center {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:18px; height:18px; border-radius:50%;
+    background:var(--green); box-shadow:0 0 20px var(--green);
+  }
+  @keyframes rpulse{
+    0%{opacity:0.8;transform:translate(-50%,-50%) scale(0.4);}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(1.5);}
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    background:var(--bg2); border-top:1px solid var(--border);
+    padding:40px 24px; text-align:center;
+  }
+  .f-logo {
+    font-size:16px; font-weight:800; color:var(--white); margin-bottom:8px;
+  }
+  .f-logo span { color:var(--green); }
+  footer p { font-size:13px; color:var(--gray-dim); }
+
+  /* ── SCROLL ANIM ── */
+  .fade-up {
+    opacity:0; transform:translateY(24px);
+    transition:opacity 0.6s, transform 0.6s;
+  }
+  .fade-up.vis { opacity:1; transform:translateY(0); }
+
+  /* ── INFO BOX ── */
+  .info-box {
+    background:rgba(74,222,128,0.05); border:1px solid rgba(74,222,128,0.15);
+    border-radius:12px; padding:18px 22px; margin:16px 0;
+  }
+  .info-box p { font-size:14px; color:var(--gray); line-height:1.7; }
+  .info-box strong { color:var(--white); }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav class="nav">
+  <a class="nav-logo" href="#">
+    <span class="nav-logo-icon">▶</span> Cricket<span>Speed</span>
+  </a>
+  <div class="nav-links">
+    <a href="#how" class="active">How It Works</a>
+    <a href="#hardware">Hardware</a>
+    <a href="#setup">Field Setup</a>
+    <a href="#app">App</a>
+    <a href="#cost">Cost</a>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="pill"><div class="pill-dot"></div>Smart Sports Technology — 2025</div>
+
+  <h1>Cricket Ball<br><em>Speed Tracker</em></h1>
+  <p class="hero-sub">A small device placed on the field shows every ball's speed on your phone — in under 1 second. No guesswork. No arguments.</p>
+
+  <div class="hero-stats">
+    <div class="stat-card">
+      <span class="n"><span data-count="0.65">0</span>s</span>
+      <span class="l">Ball to Screen</span>
+    </div>
+    <div class="stat-card">
+      <span class="n"><span data-count="150">0</span></span>
+      <span class="l">Max km/h Detected</span>
+    </div>
+    <div class="stat-card">
+      <span class="n"><span data-count="20">0</span>h</span>
+      <span class="l">Battery Life</span>
+    </div>
+    <div class="stat-card">
+      <span class="n">±<span data-count="3">0</span></span>
+      <span class="l">km/h Accuracy</span>
+    </div>
+  </div>
+
+  <div class="scroll-hint">Scroll</div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── WHAT IS IT ── -->
+<section>
+  <div class="container center">
+    <div class="section-label">The Problem</div>
+    <h2 class="section-h">No more speed arguments.</h2>
+    <p class="section-p">In box cricket, nobody knows how fast a ball was bowled. This system gives you a real number — every single delivery, instantly.</p>
+
+    <div class="grid-3">
+      <div class="card fade-up">
+        <span class="card-icon">🏏</span>
+        <div class="card-title">The Problem</div>
+        <p class="card-text">Players argue about ball speed all the time. No umpire, no speed gun. Everything is guesswork — and it causes fights.</p>
+      </div>
+      <div class="card fade-up" style="transition-delay:.12s">
+        <span class="card-icon">⚡</span>
+        <div class="card-title">Our Solution</div>
+        <p class="card-text">A small radar sensor placed behind the wicket detects every ball. Speed shows on your phone in under 1 second. No wires. No hassle.</p>
+      </div>
+      <div class="card fade-up" style="transition-delay:.24s">
+        <span class="card-icon">📱</span>
+        <div class="card-title">The Result</div>
+        <p class="card-text">Every bowler knows their exact speed. Match history is saved. No arguments — just cricket.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── LIVE SPEED ── -->
+<section class="section-alt">
+  <div class="container center">
+    <div class="section-label">Live Display</div>
+    <h2 class="section-h">What you see on your phone</h2>
+    <p class="section-p">Within 1 second of the ball passing the sensor — this number appears on screen.</p>
+    <div class="speed-box">
+      <div class="speed-num" id="live-speed">124</div>
+      <div class="speed-unit">km / h</div>
+      <div class="speed-label">Ball Speed · Delivery #3 · Friday Match</div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── HOW IT WORKS ── -->
+<section id="how">
+  <div class="container">
+    <div class="section-label">Step by Step</div>
+    <h2 class="section-h">How It Works</h2>
+    <p class="section-p">Think of it like a toll booth speed camera — but for cricket. Here's what happens every time someone bowls.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:start;">
+      <div class="flow-list">
+        <div class="flow-item">
+          <div class="flow-num">🏏</div>
+          <div class="flow-body">
+            <h3>Step 1 — Bowler Releases the Ball</h3>
+            <p>The ball leaves the bowler's hand. The radar is waiting behind the wicket, quietly scanning the air in front of it.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">📡</div>
+          <div class="flow-body">
+            <h3>Step 2 — Radar Detects the Ball</h3>
+            <p>Invisible radio waves bounce off the flying ball. The frequency change tells the radar exactly how fast it's going. This is the <strong style="color:var(--green)">Doppler Effect</strong> — same as a traffic speed gun.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">🧠</div>
+          <div class="flow-body">
+            <h3>Step 3 — Brain Filters the Data</h3>
+            <p>The ESP32 microcontroller filters out bat swings and player movement, then picks the highest valid speed from the delivery.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">📶</div>
+          <div class="flow-body">
+            <h3>Step 4 — Sent via Bluetooth</h3>
+            <p>Speed is sent wirelessly via Bluetooth (BLE) — same as your earphones. No internet, no Wi-Fi, no data plan needed.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">📱</div>
+          <div class="flow-body">
+            <h3>Step 5 — Speed on Screen</h3>
+            <p>The phone app receives the number and displays it in large bold text. Ball to screen: under 1 second. Saved to history automatically.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flow SVG -->
+      <div>
+        <svg width="100%" viewBox="0 0 420 500" xmlns="http://www.w3.org/2000/svg" style="font-family:'Inter',sans-serif;">
+          <!-- Bowler -->
+          <rect x="60" y="10" width="300" height="60" rx="12" fill="rgba(74,222,128,0.06)" stroke="rgba(74,222,128,0.3)" stroke-width="1.5"/>
+          <text x="210" y="36" text-anchor="middle" font-size="12" fill="#4ADE80" font-weight="700">🏏 Bowler Releases Ball</text>
+          <text x="210" y="56" text-anchor="middle" font-size="11" fill="#8B9AB5">T = 0 ms</text>
+
+          <!-- Arrow 1 -->
+          <line x1="210" y1="72" x2="210" y2="100" stroke="rgba(74,222,128,0.4)" stroke-width="1.5" marker-end="url(#ga)"/>
+
+          <!-- Radar -->
+          <rect x="60" y="102" width="300" height="60" rx="12" fill="rgba(74,222,128,0.06)" stroke="rgba(74,222,128,0.3)" stroke-width="1.5"/>
+          <text x="210" y="128" text-anchor="middle" font-size="12" fill="#4ADE80" font-weight="700">📡 Radar Detects Ball</text>
+          <text x="210" y="148" text-anchor="middle" font-size="11" fill="#8B9AB5">T = 300 ms — Doppler Effect</text>
+
+          <!-- Arrow 2 -->
+          <line x1="210" y1="164" x2="210" y2="192" stroke="rgba(74,222,128,0.4)" stroke-width="1.5" marker-end="url(#ga)"/>
+
+          <!-- ESP32 -->
+          <rect x="60" y="194" width="300" height="60" rx="12" fill="rgba(74,222,128,0.06)" stroke="rgba(74,222,128,0.3)" stroke-width="1.5"/>
+          <text x="210" y="220" text-anchor="middle" font-size="12" fill="#4ADE80" font-weight="700">🧠 ESP32 Processes Data</text>
+          <text x="210" y="240" text-anchor="middle" font-size="11" fill="#8B9AB5">T = 550 ms — Peak = 124 km/h</text>
+
+          <!-- Arrow 3 -->
+          <line x1="210" y1="256" x2="210" y2="284" stroke="rgba(74,222,128,0.4)" stroke-width="1.5" marker-end="url(#ga)"/>
+
+          <!-- BLE -->
+          <rect x="60" y="286" width="300" height="60" rx="12" fill="rgba(74,222,128,0.06)" stroke="rgba(74,222,128,0.3)" stroke-width="1.5"/>
+          <text x="210" y="312" text-anchor="middle" font-size="12" fill="#4ADE80" font-weight="700">📶 Sent via Bluetooth BLE</text>
+          <text x="210" y="332" text-anchor="middle" font-size="11" fill="#8B9AB5">T = 600 ms — Wireless</text>
+
+          <!-- Arrow 4 -->
+          <line x1="210" y1="348" x2="210" y2="376" stroke="rgba(74,222,128,0.4)" stroke-width="1.5" marker-end="url(#ga)"/>
+
+          <!-- App -->
+          <rect x="60" y="378" width="300" height="70" rx="12" fill="rgba(74,222,128,0.1)" stroke="rgba(74,222,128,0.5)" stroke-width="2"/>
+          <text x="210" y="408" text-anchor="middle" font-size="13" fill="#4ADE80" font-weight="800">📱 Phone Shows 124 km/h</text>
+          <text x="210" y="432" text-anchor="middle" font-size="11" fill="#8B9AB5">T = 650 ms — Done!</text>
+
+          <!-- Animated ball -->
+          <circle r="7" fill="#4ADE80" opacity="0.9">
+            <animate attributeName="cy" values="6;96;190;282;374;448" dur="2.5s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"/>
+            <animate attributeName="cx" values="210;210;210;210;210;210" dur="2.5s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0;1;1;1;1;0" dur="2.5s" repeatCount="indefinite"/>
+          </circle>
+
+          <defs>
+            <marker id="ga" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="rgba(74,222,128,0.6)"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── HARDWARE ── -->
+<section class="section-alt" id="hardware">
+  <div class="container">
+    <div class="section-label">Components</div>
+    <h2 class="section-h">5 Parts. That's All.</h2>
+    <p class="section-p">The whole system uses just 5 main parts. Each has one clear job. Together they make a professional speed tracking system.</p>
+
+    <div class="grid-3">
+      <div class="card fade-up">
+        <span class="card-icon">📡</span>
+        <div class="card-sub">HLK-LD303 — 24GHz</div>
+        <div class="card-title">Radar Sensor</div>
+        <p class="card-text">The "eye." Shoots invisible radio waves and measures how fast they bounce back off the ball. Range: 5–8 m. Accurate to ±2 km/h. Same tech as traffic speed guns.</p>
+      </div>
+      <div class="card fade-up" style="transition-delay:.1s">
+        <span class="card-icon">🧠</span>
+        <div class="card-sub">ESP32 DevKit V1</div>
+        <div class="card-title">Microcontroller</div>
+        <p class="card-text">The "brain." Reads radar numbers, filters out bat swings and walkers, picks the peak ball speed, sends it via Bluetooth. Thumb-sized, low power.</p>
+      </div>
+      <div class="card fade-up" style="transition-delay:.2s">
+        <span class="card-icon">🔋</span>
+        <div class="card-sub">Mi 20,000mAh</div>
+        <div class="card-title">Power Bank</div>
+        <p class="card-text">Powers everything. One bank, one cable. Lasts 12–20 hours — more than enough for a full day of matches.</p>
+      </div>
+      <div class="card fade-up" style="transition-delay:.3s">
+        <span class="card-icon">📶</span>
+        <div class="card-sub">Built into ESP32</div>
+        <div class="card-title">Bluetooth BLE</div>
+        <p class="card-text">Sends speed wirelessly to your phone. Up to 10 m range. No internet needed. Auto-reconnects if phone disconnects.</p>
+      </div>
+      <div class="card fade-up" style="transition-delay:.4s">
+        <span class="card-icon">📱</span>
+        <div class="card-sub">Flutter — Android + iOS</div>
+        <div class="card-title">Mobile App</div>
+        <p class="card-text">Shows speed in big bold numbers. Saves every delivery. Shows history. Works on both Android and iPhone.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── RADAR EXPLAINED ── -->
+<section>
+  <div class="container">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;">
+      <div>
+        <div class="section-label">How the Radar Works</div>
+        <h2 class="section-h" style="font-size:clamp(24px,4vw,42px);">Same tech as a speed gun.</h2>
+        <p style="font-size:15px;color:var(--gray);line-height:1.8;margin-bottom:20px;">
+          The radar sends out radio waves — invisible to the eye. When a cricket ball flies through, the waves hit it and bounce back. Because the ball is moving, the returning wave has a slightly different frequency. That difference tells us the speed. Scientists call this the <strong style="color:var(--green)">Doppler Effect.</strong>
+        </p>
+        <div class="info-box">
+          <p>Imagine shouting "hello" at a moving wall. The echo comes back at a different pitch. That pitch difference is how radar measures speed — no camera, no contact, no setup.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-top:20px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);flex-shrink:0;"></div>
+            <span style="font-size:14px;color:var(--gray);">Range: 5–8 meters — perfect for box cricket</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);flex-shrink:0;"></div>
+            <span style="font-size:14px;color:var(--gray);">No moving parts — just radio waves</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);flex-shrink:0;"></div>
+            <span style="font-size:14px;color:var(--gray);">Works indoors and outdoors — weather doesn't affect it</span>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;">
+        <div class="radar-anim">
+          <div class="radar-ring"></div><div class="radar-ring"></div>
+          <div class="radar-ring"></div><div class="radar-ring"></div>
+          <div class="radar-ring"></div>
+          <div class="radar-center"></div>
+        </div>
+        <div style="display:inline-block;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 30px;">
+          <div style="font-size:11px;color:var(--gray);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">Detection Range</div>
+          <div style="font-size:34px;font-weight:900;color:var(--white);">5–8 <span style="font-size:18px;color:var(--green);">meters</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── WIRING ── -->
+<section class="section-alt">
+  <div class="container">
+    <div class="section-label">Connections</div>
+    <h2 class="section-h">4 Wires. Done.</h2>
+    <p class="section-p">The radar connects to the ESP32 with just 4 wires — power, ground, data in, data out.</p>
+
+    <div class="wire-box">
+      <svg width="100%" viewBox="0 0 740 280" xmlns="http://www.w3.org/2000/svg" style="font-family:'Inter',sans-serif;max-width:740px;display:block;margin:0 auto;">
+        <!-- Power Bank -->
+        <rect x="10" y="88" width="140" height="104" rx="12" fill="rgba(74,222,128,0.05)" stroke="rgba(74,222,128,0.2)" stroke-width="1.5"/>
+        <text x="80" y="120" text-anchor="middle" font-size="11" fill="#4ADE80" font-weight="700">POWER BANK</text>
+        <text x="80" y="138" text-anchor="middle" font-size="10" fill="#8B9AB5">Mi 20,000mAh</text>
+        <text x="80" y="155" text-anchor="middle" font-size="10" fill="#8B9AB5">USB → 5V</text>
+        <rect x="64" y="168" width="32" height="8" rx="3" fill="rgba(74,222,128,0.2)"/>
+        <text x="80" y="175" text-anchor="middle" font-size="8" fill="#4ADE80">USB</text>
+        <line x1="152" y1="140" x2="204" y2="140" stroke="rgba(74,222,128,0.4)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#gb)"/>
+        <text x="178" y="132" text-anchor="middle" font-size="9" fill="#4A5568">5V</text>
+
+        <!-- ESP32 -->
+        <rect x="206" y="46" width="164" height="188" rx="12" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+        <text x="288" y="72" text-anchor="middle" font-size="12" fill="#FFFFFF" font-weight="700">ESP32</text>
+        <text x="288" y="88" text-anchor="middle" font-size="10" fill="#8B9AB5">Brain — DevKit V1</text>
+        <!-- pins left side -->
+        <rect x="214" y="100" width="76" height="18" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+        <text x="252" y="112" text-anchor="middle" font-size="9" fill="#E2E8F0">GPIO16 RX2</text>
+        <rect x="214" y="122" width="76" height="18" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+        <text x="252" y="134" text-anchor="middle" font-size="9" fill="#E2E8F0">GPIO17 TX2</text>
+        <rect x="214" y="144" width="76" height="18" rx="4" fill="rgba(255,80,80,0.07)" stroke="rgba(255,80,80,0.15)" stroke-width="1"/>
+        <text x="252" y="156" text-anchor="middle" font-size="9" fill="#FC8181">VIN 5V</text>
+        <rect x="214" y="166" width="76" height="18" rx="4" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+        <text x="252" y="178" text-anchor="middle" font-size="9" fill="#8B9AB5">GND</text>
+        <!-- pins right side -->
+        <rect x="296" y="100" width="66" height="18" rx="4" fill="rgba(74,222,128,0.07)" stroke="rgba(74,222,128,0.2)" stroke-width="1"/>
+        <text x="329" y="112" text-anchor="middle" font-size="9" fill="#4ADE80">← TX</text>
+        <rect x="296" y="122" width="66" height="18" rx="4" fill="rgba(74,222,128,0.07)" stroke="rgba(74,222,128,0.2)" stroke-width="1"/>
+        <text x="329" y="134" text-anchor="middle" font-size="9" fill="#4ADE80">→ RX</text>
+        <rect x="296" y="144" width="66" height="18" rx="4" fill="rgba(255,80,80,0.07)" stroke="rgba(255,80,80,0.15)" stroke-width="1"/>
+        <text x="329" y="156" text-anchor="middle" font-size="9" fill="#FC8181">→ VCC</text>
+        <rect x="296" y="166" width="66" height="18" rx="4" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+        <text x="329" y="178" text-anchor="middle" font-size="9" fill="#8B9AB5">→ GND</text>
+
+        <!-- Wires to Radar -->
+        <line x1="364" y1="109" x2="452" y2="109" stroke="#4ADE80" stroke-width="2.5"/>
+        <line x1="364" y1="131" x2="452" y2="131" stroke="#818CF8" stroke-width="2.5"/>
+        <line x1="364" y1="153" x2="452" y2="153" stroke="#FC8181" stroke-width="2.5"/>
+        <line x1="364" y1="175" x2="452" y2="175" stroke="#4A5568" stroke-width="2.5"/>
+        <text x="408" y="101" text-anchor="middle" font-size="9" fill="#4ADE80">DATA TX</text>
+        <text x="408" y="123" text-anchor="middle" font-size="9" fill="#818CF8">DATA RX</text>
+        <text x="408" y="145" text-anchor="middle" font-size="9" fill="#FC8181">+5V</text>
+        <text x="408" y="167" text-anchor="middle" font-size="9" fill="#4A5568">GND</text>
+
+        <!-- Radar -->
+        <rect x="454" y="46" width="164" height="188" rx="12" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+        <text x="536" y="72" text-anchor="middle" font-size="12" fill="#FFFFFF" font-weight="700">RADAR</text>
+        <text x="536" y="88" text-anchor="middle" font-size="10" fill="#8B9AB5">HLK-LD303 · 24GHz</text>
+        <rect x="462" y="100" width="66" height="18" rx="4" fill="rgba(74,222,128,0.07)" stroke="rgba(74,222,128,0.2)" stroke-width="1"/>
+        <text x="495" y="112" text-anchor="middle" font-size="9" fill="#4ADE80">TX →</text>
+        <rect x="462" y="122" width="66" height="18" rx="4" fill="rgba(74,222,128,0.07)" stroke="rgba(74,222,128,0.2)" stroke-width="1"/>
+        <text x="495" y="134" text-anchor="middle" font-size="9" fill="#4ADE80">← RX</text>
+        <rect x="462" y="144" width="66" height="18" rx="4" fill="rgba(255,80,80,0.07)" stroke="rgba(255,80,80,0.15)" stroke-width="1"/>
+        <text x="495" y="156" text-anchor="middle" font-size="9" fill="#FC8181">VCC</text>
+        <rect x="462" y="166" width="66" height="18" rx="4" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+        <text x="495" y="178" text-anchor="middle" font-size="9" fill="#8B9AB5">GND</text>
+        <text x="575" y="155" font-size="28" text-anchor="middle">📡</text>
+        <text x="536" y="214" text-anchor="middle" font-size="10" fill="#4ADE80">← Faces Bowler</text>
+
+        <!-- BLE to phone -->
+        <line x1="620" y1="140" x2="676" y2="100" stroke="rgba(74,222,128,0.3)" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#gb)"/>
+        <text x="700" y="86" font-size="24" text-anchor="middle">📱</text>
+        <text x="710" y="105" font-size="9" fill="#4ADE80" font-weight="700">BLE</text>
+
+        <defs>
+          <marker id="gb" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L6,3 z" fill="rgba(74,222,128,0.6)"/>
+          </marker>
+        </defs>
+      </svg>
+
+      <div class="wire-legend">
+        <div class="wire-leg-item"><div class="wire-dot" style="background:#4ADE80;"></div><span>Data out from radar (TX)</span></div>
+        <div class="wire-leg-item"><div class="wire-dot" style="background:#818CF8;"></div><span>Data in to radar (RX)</span></div>
+        <div class="wire-leg-item"><div class="wire-dot" style="background:#FC8181;"></div><span>Power — 5 Volts</span></div>
+        <div class="wire-leg-item"><div class="wire-dot" style="background:#4A5568;"></div><span>Ground — common reference</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── FIELD SETUP ── -->
+<section id="setup">
+  <div class="container">
+    <div class="section-label">Field Placement</div>
+    <h2 class="section-h">Where to Place It</h2>
+    <p class="section-p">Placement is everything. Wrong position = wrong readings. This diagram shows exactly where the sensor goes.</p>
+
+    <div class="field-box">
+      <div style="text-align:center;margin-bottom:16px;">
+        <span style="font-size:11px;color:rgba(74,222,128,0.4);letter-spacing:3px;text-transform:uppercase;font-weight:600;">Top View — Bird's Eye</span>
+      </div>
+      <svg width="100%" viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg" style="font-family:'Inter',sans-serif;max-width:700px;display:block;margin:0 auto;">
+        <!-- Field -->
+        <rect x="20" y="10" width="660" height="340" rx="16" fill="rgba(74,222,128,0.03)" stroke="rgba(74,222,128,0.1)" stroke-width="1.5"/>
+        <!-- Pitch -->
+        <rect x="130" y="40" width="440" height="280" rx="6" fill="rgba(74,222,128,0.04)" stroke="rgba(74,222,128,0.08)" stroke-width="1"/>
+        <text x="350" y="34" text-anchor="middle" font-size="10" fill="rgba(74,222,128,0.35)" font-weight="600" letter-spacing="2">PITCH · 10 to 14 METERS</text>
+
+        <!-- Bowler -->
+        <circle cx="160" cy="180" r="26" fill="rgba(74,222,128,0.07)" stroke="rgba(74,222,128,0.25)" stroke-width="1.5"/>
+        <text x="160" y="187" text-anchor="middle" font-size="20">🏃</text>
+        <text x="160" y="220" text-anchor="middle" font-size="10" fill="#4ADE80" font-weight="700">BOWLER</text>
+
+        <!-- Ball path -->
+        <line x1="192" y1="180" x2="426" y2="180" stroke="#4ADE80" stroke-width="1.5" stroke-dasharray="8,5" marker-end="url(#gc)"/>
+        <text x="305" y="168" text-anchor="middle" font-size="10" fill="rgba(74,222,128,0.5)">Ball Direction →</text>
+
+        <!-- Wickets -->
+        <rect x="430" y="163" width="22" height="36" rx="3" fill="rgba(74,222,128,0.1)" stroke="#4ADE80" stroke-width="1.5"/>
+        <text x="441" y="157" text-anchor="middle" font-size="9" fill="#4ADE80" font-weight="700">WICKET</text>
+        <line x1="430" y1="165" x2="430" y2="197" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+        <line x1="441" y1="165" x2="441" y2="197" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+        <line x1="452" y1="165" x2="452" y2="197" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+
+        <!-- Batter -->
+        <circle cx="488" cy="180" r="18" fill="rgba(129,140,248,0.08)" stroke="rgba(129,140,248,0.25)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <text x="488" y="186" text-anchor="middle" font-size="14">🏏</text>
+        <text x="488" y="210" text-anchor="middle" font-size="10" fill="rgba(129,140,248,0.6)">Batter</text>
+
+        <!-- Gap measure -->
+        <line x1="462" y1="232" x2="553" y2="232" stroke="rgba(255,255,255,0.15)" stroke-width="1" marker-start="url(#gcl)" marker-end="url(#gc)"/>
+        <text x="507" y="246" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.25)">1 to 2 meters</text>
+
+        <!-- Radar station -->
+        <rect x="548" y="152" width="104" height="56" rx="10" fill="rgba(74,222,128,0.08)" stroke="#4ADE80" stroke-width="2"/>
+        <text x="600" y="175" text-anchor="middle" font-size="11" fill="#4ADE80" font-weight="700">RADAR</text>
+        <text x="600" y="191" text-anchor="middle" font-size="9" fill="#8B9AB5">HLK-LD303</text>
+        <text x="600" y="203" text-anchor="middle" font-size="9" fill="#4ADE80">← faces bowler</text>
+        <!-- Tripod legs -->
+        <line x1="574" y1="208" x2="560" y2="234" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+        <line x1="600" y1="208" x2="600" y2="238" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+        <line x1="626" y1="208" x2="640" y2="234" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+        <line x1="555" y1="234" x2="645" y2="234" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+        <!-- ESP32 + power box -->
+        <rect x="570" y="238" width="60" height="26" rx="6" fill="rgba(74,222,128,0.06)" stroke="rgba(74,222,128,0.2)" stroke-width="1"/>
+        <text x="600" y="255" text-anchor="middle" font-size="8" fill="rgba(74,222,128,0.5)">ESP32 + Power</text>
+        <text x="600" y="292" text-anchor="middle" font-size="10" fill="#4ADE80" font-weight="700">SENSOR STATION</text>
+        <text x="600" y="308" text-anchor="middle" font-size="9" fill="#8B9AB5">Height: 65–75 cm</text>
+
+        <!-- Detection cone -->
+        <path d="M546,160 L435,130 L435,230 Z" fill="rgba(74,222,128,0.04)" stroke="rgba(74,222,128,0.1)" stroke-width="1"/>
+
+        <!-- Wrong placement -->
+        <rect x="286" y="300" width="128" height="44" rx="8" fill="rgba(255,80,80,0.05)" stroke="rgba(255,80,80,0.25)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <text x="350" y="321" text-anchor="middle" font-size="10" fill="rgba(255,100,100,0.7)" font-weight="700">❌ WRONG</text>
+        <text x="350" y="337" text-anchor="middle" font-size="9" fill="rgba(255,100,100,0.45)">Side placement = wrong speed</text>
+
+        <defs>
+          <marker id="gc" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L6,3 z" fill="#4ADE80"/>
+          </marker>
+          <marker id="gcl" markerWidth="6" markerHeight="6" refX="1" refY="3" orient="auto">
+            <path d="M6,0 L6,6 L0,3 z" fill="rgba(255,255,255,0.2)"/>
+          </marker>
+        </defs>
+      </svg>
+
+      <div class="field-label-row">
+        <div class="field-label-item"><p><strong>Where:</strong> 1–2 m behind the batter's wicket</p></div>
+        <div class="field-label-item"><p><strong>Height:</strong> 65–75 cm from ground (stump height)</p></div>
+        <div class="field-label-item"><p><strong>Direction:</strong> Directly facing the bowler — 0° tilt</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── ONE BALL WALKTHROUGH ── -->
+<section class="section-alt">
+  <div class="container">
+    <div class="section-label">Complete Flow</div>
+    <h2 class="section-h">One Ball — Start to Finish</h2>
+    <p class="section-p">Follow one delivery — bowled by Ravi — from the moment it leaves his hand to the speed on your phone.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start;">
+      <div class="tl">
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-time">T = 0 ms</div>
+          <div class="tl-title">Ravi Releases the Ball</div>
+          <div class="tl-desc">Ball leaves his hand. Radar is quietly scanning — nothing detected yet.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-time">T = 300 ms</div>
+          <div class="tl-title">Ball Enters Radar Zone</div>
+          <div class="tl-desc">Readings start flowing: 45 → 89 → 112 → 124 km/h. ESP32 starts collecting.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-time">T = 550 ms</div>
+          <div class="tl-title">Ball Passes the Sensor</div>
+          <div class="tl-desc">Speed drops: 119 → 98 → 61 → 8 km/h. ESP32 detects the drop and ends tracking.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-time">T = 600 ms</div>
+          <div class="tl-title">Peak Found — 124 km/h</div>
+          <div class="tl-desc">ESP32 picks the highest reading. Packages it and sends via Bluetooth.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-time">T = 650 ms</div>
+          <div class="tl-title">Phone Shows 124 km/h</div>
+          <div class="tl-desc">App receives the BLE message. Speed shown in big text. 3-second cooldown begins.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-time">T = 3,650 ms</div>
+          <div class="tl-title">Ready for Next Ball</div>
+          <div class="tl-desc">Cooldown ends. Radar listening again. System ready for Delivery #2.</div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="card">
+          <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">What ESP32 Sees</div>
+          <div class="bar-row"><div class="bar-meta"><span class="bar-key">Reading 1</span><span class="bar-val">45 km/h</span></div><div class="bar-track"><div class="bar-fill" style="width:30%"></div></div></div>
+          <div class="bar-row"><div class="bar-meta"><span class="bar-key">Reading 2</span><span class="bar-val">89 km/h</span></div><div class="bar-track"><div class="bar-fill" style="width:59%"></div></div></div>
+          <div class="bar-row"><div class="bar-meta"><span class="bar-key">Reading 3</span><span class="bar-val">112 km/h</span></div><div class="bar-track"><div class="bar-fill" style="width:75%"></div></div></div>
+          <div class="bar-row"><div class="bar-meta"><span class="bar-key">Reading 4 — PEAK</span><span class="bar-val" style="color:var(--green)">124 km/h ★</span></div><div class="bar-track"><div class="bar-fill peak" style="width:83%"></div></div></div>
+          <div class="bar-row"><div class="bar-meta"><span class="bar-key">Reading 5</span><span class="bar-val">98 km/h</span></div><div class="bar-track"><div class="bar-fill" style="width:65%"></div></div></div>
+          <div class="bar-row"><div class="bar-meta"><span class="bar-key">Reading 6</span><span class="bar-val">61 km/h</span></div><div class="bar-track"><div class="bar-fill" style="width:41%"></div></div></div>
+          <div class="bar-row"><div class="bar-meta"><span class="bar-key">Reading 7 — End</span><span class="bar-val" style="color:#4ADE80">8 km/h</span></div><div class="bar-track"><div class="bar-fill" style="width:5%;background:#4ADE80;opacity:0.5"></div></div></div>
+          <div style="margin-top:16px;padding:14px;background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.15);border-radius:10px;">
+            <div style="font-size:12px;color:var(--gray);">ESP32 picks the highest:</div>
+            <div style="font-size:30px;font-weight:900;color:var(--white);letter-spacing:-1px;">124 km/h</div>
+            <div style="font-size:12px;color:var(--gray);">→ Sent to phone via Bluetooth</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;">Smart Filtering</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;background:rgba(74,222,128,0.05);border:1px solid rgba(74,222,128,0.15);border-radius:10px;">
+              <span class="tag-ok">Track</span>
+              <div><div style="font-size:13px;font-weight:600;color:var(--white);">Cricket Ball — 70 to 150 km/h</div><div style="font-size:12px;color:var(--gray);">Reported on phone</div></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;background:rgba(255,80,80,0.04);border:1px solid rgba(255,80,80,0.12);border-radius:10px;">
+              <span class="tag-no">Ignore</span>
+              <div><div style="font-size:13px;font-weight:600;color:var(--white);">Bat Swing — 30 to 50 km/h</div><div style="font-size:12px;color:var(--gray);">Below threshold — filtered out</div></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;background:rgba(255,80,80,0.04);border:1px solid rgba(255,80,80,0.12);border-radius:10px;">
+              <span class="tag-no">Ignore</span>
+              <div><div style="font-size:13px;font-weight:600;color:var(--white);">Player Walking — 5 to 10 km/h</div><div style="font-size:12px;color:var(--gray);">Too slow — ignored automatically</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── APP SCREENS ── -->
+<section id="app">
+  <div class="container center">
+    <div class="section-label">The App</div>
+    <h2 class="section-h">4 Simple Screen States</h2>
+    <p class="section-p">Anyone at the match can read the app — no training needed.</p>
+
+    <div class="app-screens">
+      <div class="app-wrap">
+        <div class="app-state-label">State 1 — Ready</div>
+        <div class="app-frame">
+          <div class="app-status-bar">● Connected — CricketSpeedTracker</div>
+          <div class="app-ready">READY</div>
+          <div class="app-waiting">Waiting for delivery...</div>
+          <div class="app-last"><div class="app-last-label">Last Speed</div><div class="app-last-val">116 km/h</div></div>
+        </div>
+        <p style="font-size:11px;color:var(--gray-dim);text-align:center;">System on. Waiting.</p>
+      </div>
+
+      <div class="app-wrap">
+        <div class="app-state-label">State 2 — Speed</div>
+        <div class="app-frame">
+          <div class="app-status-bar">● Connected — CricketSpeedTracker</div>
+          <div class="app-speed-big">124</div>
+          <div class="app-kmh">km / h</div>
+          <div class="app-caption">Ball Speed Detected</div>
+          <div style="font-size:11px;color:rgba(74,222,128,0.4);text-align:center;margin-top:6px;font-weight:600;">Delivery #1</div>
+        </div>
+        <p style="font-size:11px;color:var(--gray-dim);text-align:center;">Speed shown instantly.</p>
+      </div>
+
+      <div class="app-wrap">
+        <div class="app-state-label">State 3 — Cooldown</div>
+        <div class="app-frame">
+          <div class="app-status-bar">● Connected — CricketSpeedTracker</div>
+          <div class="app-speed-big" style="font-size:44px;">124</div>
+          <div class="app-kmh">km / h</div>
+          <div style="font-size:11px;color:var(--gray-dim);text-align:center;margin-top:8px;">Next ball in 3s...</div>
+          <div class="app-prog-bar"><div class="app-prog-fill"></div></div>
+          <div style="font-size:11px;color:rgba(74,222,128,0.4);text-align:center;font-weight:600;">2s remaining</div>
+        </div>
+        <p style="font-size:11px;color:var(--gray-dim);text-align:center;">3s cooldown active.</p>
+      </div>
+
+      <div class="app-wrap">
+        <div class="app-state-label" style="color:#FF6B6B;">State 4 — Disconnected</div>
+        <div class="app-frame" style="border-color:rgba(255,80,80,0.2);">
+          <div class="app-status-bar" style="color:rgba(255,100,100,0.6);">Device Disconnected</div>
+          <div style="font-size:32px;text-align:center;padding:14px 0;">📵</div>
+          <div style="font-size:12px;color:var(--gray-dim);text-align:center;">Reconnecting...</div>
+          <div class="app-last" style="margin-top:12px;"><div class="app-last-label">Last known speed</div><div class="app-last-val" style="opacity:0.5;">124 km/h</div></div>
+          <div class="app-disco">Auto-reconnects — no reset needed</div>
+        </div>
+        <p style="font-size:11px;color:var(--gray-dim);text-align:center;">Auto-reconnects.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── ERROR HANDLING ── -->
+<section class="section-alt">
+  <div class="container">
+    <div class="section-label">Reliability</div>
+    <h2 class="section-h">The System Handles It.</h2>
+    <p class="section-p">Every possible problem is handled automatically. Here's how.</p>
+
+    <div class="grid-2">
+      <div class="card fade-up">
+        <span class="card-icon">🏏</span>
+        <div class="card-title">Bat Swing Triggers System</div>
+        <p class="card-text"><strong style="color:var(--white)">Problem:</strong> Bat swings at ~35 km/h get detected.<br><br><strong style="color:var(--green)">Fix:</strong> Minimum threshold raised to 40 km/h after calibration. Bat swings are filtered out.</p>
+      </div>
+      <div class="card fade-up" style="transition-delay:.1s">
+        <span class="card-icon">📶</span>
+        <div class="card-title">Bluetooth Disconnects</div>
+        <p class="card-text"><strong style="color:var(--white)">Problem:</strong> Phone goes out of range mid-match.<br><br><strong style="color:var(--green)">Fix:</strong> ESP32 auto-re-advertises. Flutter reconnects automatically. Radar keeps running. No reset needed.</p>
+      </div>
+      <div class="card fade-up" style="transition-delay:.2s">
+        <span class="card-icon">🔋</span>
+        <div class="card-title">Power Bank Runs Out</div>
+        <p class="card-text"><strong style="color:var(--white)">Problem:</strong> Battery dies during a match.<br><br><strong style="color:var(--green)">Fix:</strong> Recharge and plug back in — restarts in seconds. 20,000mAh gives 12–20 hours, so this rarely happens.</p>
+      </div>
+      <div class="card fade-up" style="transition-delay:.3s">
+        <span class="card-icon">🚶</span>
+        <div class="card-title">Players Walking Near Radar</div>
+        <p class="card-text"><strong style="color:var(--white)">Problem:</strong> A fielder walks near the sensor.<br><br><strong style="color:var(--green)">Fix:</strong> Walking is 5–10 km/h. System ignores everything below 20 km/h automatically.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── CHECKLIST ── -->
+<section>
+  <div class="container">
+    <div class="section-label">Before First Use</div>
+    <h2 class="section-h">Setup Checklist</h2>
+    <p class="section-p">Our engineer runs through this before handing the system over. Click each item to mark it done.</p>
+
+    <div style="max-width:680px;">
+      <div class="check-group-title">Step 1 — Power Check</div>
+      <div class="checklist">
+        <div class="check-item" onclick="tick(this)"><div class="check-box"></div><div class="check-text">Radar powers on from 5V — verified with multimeter</div></div>
+        <div class="check-item" onclick="tick(this)"><div class="check-box"></div><div class="check-text">ESP32 powers on from VIN 5V — verified with multimeter</div></div>
+        <div class="check-item" onclick="tick(this)"><div class="check-box"></div><div class="check-text">Both radar and ESP32 share a common ground wire</div></div>
+      </div>
+      <div class="check-group-title">Step 2 — Communication Check</div>
+      <div class="checklist">
+        <div class="check-item" onclick="tick(this)"><div class="check-box"></div><div class="check-text">Radar sends speed data to ESP32 — confirmed on serial monitor</div></div>
+        <div class="check-item" onclick="tick(this)"><div class="check-box"></div><div class="check-text">Data format is readable — no garbage characters</div></div>
+      </div>
+      <div class="check-group-title">Step 3 — Bluetooth Check</div>
+      <div class="checklist">
+        <div class="check-item" onclick="tick(this)"><div class="check-box"></div><div class="check-text">"CricketSpeedTracker" appears in phone Bluetooth scan list</div></div>
+        <div class="check-item" onclick="tick(this)"><div class="check-box"></div><div class="check-text">Flutter app connects and receives speed when object moves in front of radar</div></div>
+        <div class="check-item" onclick="tick(this)"><div class="check-box"></div><div class="check-text">Auto-reconnect tested — disconnect and reconnect without physical reset</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── PERFORMANCE ── -->
+<section class="section-alt">
+  <div class="container">
+    <div class="section-label">Numbers</div>
+    <h2 class="section-h">Performance Targets</h2>
+    <p class="section-p">What the system is designed to hit — after calibration on the field.</p>
+    <div class="specs-grid">
+      <div class="spec-item"><div class="spec-k">Minimum Detectable Speed</div><div class="spec-v">20 km/h</div></div>
+      <div class="spec-item"><div class="spec-k">Maximum Expected Speed</div><div class="spec-v">150 km/h</div></div>
+      <div class="spec-item"><div class="spec-k">Accuracy After Calibration</div><div class="spec-v">±2–3 km/h</div></div>
+      <div class="spec-item"><div class="spec-k">Speed to Phone Latency</div><div class="spec-v">&lt; 1 second</div></div>
+      <div class="spec-item"><div class="spec-k">Cooldown Between Balls</div><div class="spec-v">3 seconds</div></div>
+      <div class="spec-item"><div class="spec-k">Detection Range</div><div class="spec-v">5–10 meters</div></div>
+      <div class="spec-item"><div class="spec-k">Battery Life</div><div class="spec-v">12–20 hours</div></div>
+      <div class="spec-item"><div class="spec-k">UART Baud Rate</div><div class="spec-v">115200 bps</div></div>
+      <div class="spec-item"><div class="spec-k">Bluetooth Protocol</div><div class="spec-v">BLE 4.2+</div></div>
+      <div class="spec-item"><div class="spec-k">Radar Frequency</div><div class="spec-v">24 GHz</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── COST ── -->
+<section id="cost">
+  <div class="container">
+    <div class="section-label">Investment</div>
+    <h2 class="section-h">What It Costs to Build</h2>
+    <p class="section-p">All parts available in India. Power bank already available — excluded from estimate.</p>
+    <div style="overflow-x:auto;">
+      <table class="cost-table">
+        <thead>
+          <tr><th>#</th><th>Component</th><th>What It Does</th><th>Price (INR)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td><strong>24GHz Radar Sensor</strong><br><span style="font-size:11px;color:var(--gray)">HLK-LD303</span></td><td>The eye — detects ball speed</td><td><strong>₹4,000 – 6,000</strong></td></tr>
+          <tr><td>2</td><td><strong>ESP32 Microcontroller</strong><br><span style="font-size:11px;color:var(--gray)">DevKit V1</span></td><td>The brain — processes and sends data</td><td><strong>₹400 – 800</strong></td></tr>
+          <tr><td>3</td><td><strong>Jumper Wires</strong></td><td>Connects radar to ESP32</td><td><strong>₹100 – 200</strong></td></tr>
+          <tr><td>4</td><td><strong>Logic Level Shifter</strong><br><span style="font-size:11px;color:var(--gray)">If radar uses 5V logic</span></td><td>Protects ESP32 from high voltage</td><td><strong>₹50 – 150</strong></td></tr>
+          <tr><td>5</td><td><strong>100uF Capacitor</strong></td><td>Stabilizes the power line</td><td><strong>₹10 – 30</strong></td></tr>
+          <tr><td>6</td><td><strong>Tripod / Mount</strong></td><td>Holds radar at correct height</td><td><strong>₹300 – 800</strong></td></tr>
+          <tr><td>7</td><td><strong>Enclosure Box</strong><br><span style="font-size:11px;color:var(--gray)">Optional</span></td><td>Protects wiring from dust / water</td><td><strong>₹300 – 800</strong></td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td colspan="3" style="text-align:right;padding-right:24px;color:var(--gray);">Total (power bank excluded)</td><td>₹5,160 – 8,780</td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <p style="margin-top:12px;font-size:12px;color:var(--gray-dim);">* Mi 20,000mAh power bank is already available and excluded from the estimate above.</p>
+  </div>
+</section>
+
+<div class="section-sep"></div>
+
+<!-- ── QUICK REF ── -->
+<section class="section-alt">
+  <div class="container">
+    <div class="qref">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="font-size:22px;font-weight:800;color:var(--white);">Quick Reference</div>
+        <div class="pill" style="margin:0;">Field Use</div>
+      </div>
+      <p style="font-size:14px;color:var(--gray);margin-top:6px;">Keep this for quick reference at the field.</p>
+      <div class="qref-grid">
+        <div class="qref-block">
+          <h4>Hardware</h4>
+          <p>Radar: <strong>HLK-LD303 (24GHz)</strong><br>Brain: <strong>ESP32 DevKit V1</strong><br>Power: <strong>Mi 20,000mAh</strong><br>App: <strong>Flutter (Android + iOS)</strong></p>
+        </div>
+        <div class="qref-block">
+          <h4>Field Placement</h4>
+          <p>Position: <strong>Behind batter, face bowler</strong><br>Height: <strong>65–75 cm from ground</strong><br>Distance: <strong>1–2 m behind wicket</strong><br>Angle: <strong>0° — perfectly horizontal</strong></p>
+        </div>
+        <div class="qref-block">
+          <h4>Speed Settings</h4>
+          <p>Min threshold: <strong>20 km/h</strong><br>Max threshold: <strong>200 km/h</strong><br>Cooldown: <strong>3 seconds</strong><br>Latency: <strong>Under 1 second</strong></p>
+        </div>
+        <div class="qref-block">
+          <h4>Bluetooth</h4>
+          <p>Device name: <strong>CricketSpeedTracker</strong><br>Protocol: <strong>BLE 4.2+</strong><br>Range: <strong>Up to 10 meters</strong><br>Reconnect: <strong>Automatic</strong></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="f-logo">Cricket<span>Speed</span>Tracker</div>
+  <p style="margin-bottom:4px;">Proposal Document — Prepared for Management & Client Review</p>
+  <p>Hardware-powered · Bluetooth-connected · Field-ready</p>
+</footer>
+
+<script>
+  // Intersection observer for all animated elements
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('vis'); });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.fade-up, .flow-item, .tl-item').forEach(el => obs.observe(el));
+
+  // Stagger flow and timeline
+  document.querySelectorAll('.flow-item').forEach((el, i) => el.style.transitionDelay = `${i * 0.1}s`);
+  document.querySelectorAll('.tl-item').forEach((el, i) => el.style.transitionDelay = `${i * 0.09}s`);
+
+  // Counter animation
+  function animCount(el) {
+    const target = parseFloat(el.dataset.count);
+    const dec = target < 10;
+    const t0 = performance.now();
+    (function run(now) {
+      const p = Math.min((now - t0) / 1600, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = dec ? (target * ease).toFixed(2) : Math.round(target * ease);
+      if (p < 1) requestAnimationFrame(run);
+    })(t0);
+  }
+  const heroObs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('[data-count]').forEach(animCount);
+        heroObs.disconnect();
+      }
+    });
+  }, { threshold: 0.5 });
+  const hs = document.querySelector('.hero-stats');
+  if (hs) heroObs.observe(hs);
+
+  // Live speed cycle
+  const speeds = [88, 116, 124, 97, 142, 108, 133, 119, 106, 138];
+  let si = 0;
+  const liveEl = document.getElementById('live-speed');
+  if (liveEl) {
+    setInterval(() => {
+      si = (si + 1) % speeds.length;
+      liveEl.style.opacity = '0.05';
+      liveEl.style.transform = 'scale(0.92)';
+      liveEl.style.transition = 'all 0.2s ease';
+      setTimeout(() => {
+        liveEl.textContent = speeds[si];
+        liveEl.style.opacity = '1';
+        liveEl.style.transform = 'scale(1)';
+      }, 210);
+    }, 2000);
+  }
+
+  // Checklist toggle
+  function tick(el) {
+    const box = el.querySelector('.check-box');
+    const done = box.classList.toggle('done');
+    box.textContent = done ? '✓' : '';
+    el.classList.toggle('done-item', done);
+  }
+
+  // Active nav link on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-links a');
+  window.addEventListener('scroll', () => {
+    let cur = '';
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) cur = s.id; });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + cur);
+    });
+  });
+</script>
+</body>
+</html>
